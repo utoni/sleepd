@@ -1,0 +1,5 @@
+* If the -b flag is used, and the system put to sleep, but then the user
+  resumes it with the battery still low, it will go to sleep again. This
+  type of tug-of-war with the user isn't nice. It would be better to only
+  go to sleep the first time the battery goes low, then never again until
+  it gets higher again. Hmm.

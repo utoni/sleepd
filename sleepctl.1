@@ -1,0 +1,44 @@
+.TH SLEEPCTL 1
+.SH NAME
+sleepctl \- enable/disable sleepd
+.SH SYNOPSIS
+.B sleeptcl [on|off|status]
+.SH DESCRIPTION
+.BR sleepctl
+allows temporarily disabling of the
+.BR sleepd(8)
+daemon, by a regular user. This can be useful when you're in the middle of
+a long download or compile, and don't want the system going to sleep in the
+middle.
+.P
+"sleepctl off" makes sleepd not put the system to sleep even if it
+thinks it is idle. If this command is run more than once, the requests
+stack up, and a like number of "sleepctl on" commands must be run to
+re-enable sleeping. This may be useful if multiple automated processes or
+users use the command. Note that the system may still be put to sleep for
+other reasons, such as a failing battery.
+.P
+"sleepctl on" re-enables sleeping. If sleeping is re-enabled and sleepd
+has seen no system activity for some time, and has been prevented from
+putting the system to sleep, it may put the system to sleep immediatly.
+.P
+"sleepctl status" outputs the current status of sleepd.
+.P
+Note that if the system is forced to sleep by other means, sleepd
+will not remember what mode it was in when it wakes back up, and will
+return to the default mode of putting the system to sleep after some amount
+of inactivity. This is by design, so you may easily and naturally undo the
+effects of a "sleepctl off" without remembering to turn it back on.
+.P
+This program communicates with sleepd by writing to the file
+/var/run/sleepd.ctl. As such, it needs read/write access to that
+file. It also needs to run as whatever user sleepd runs as, so it can
+hup the daemon.
+.SH EXAMPLES
+ sleepctl off ; wget http://foo/huge.tgz ; sleepctl on
+.SH "SEE ALSO"
+.BR sleepd (8)
+.P
+.B http://kitenet.net/~joey/code/sleepd/
+.SH AUTHOR
+Joey Hess <joey@kitenet.net>

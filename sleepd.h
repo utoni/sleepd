@@ -1,0 +1,10 @@
+#define MAX_IRQS 255
+#define MAX_NET 8
+#define INTERRUPTS "/proc/interrupts"
+#define DEFAULT_SLEEP_TIME 10
+#define PID_FILE "/var/run/sleepd.pid"
+#define CONTROL_FILE "/var/run/sleepd.ctl"
+#define TXFILE "/sys/class/net/%s/statistics/tx_packets"
+#define TXRATE 15
+#define RXFILE "/sys/class/net/%s/statistics/rx_packets"
+#define RXRATE 25

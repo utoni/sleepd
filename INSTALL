@@ -1,0 +1,5 @@
+A 'make; make install' should be sufficient to install the package.
+PREFIX can be used to install into a subdirectory.
+
+Setting up your system's init scripts to run sleepd on boot is left to
+you. You might find debian/init to be a useful example.

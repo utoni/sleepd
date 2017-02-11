@@ -217,6 +217,7 @@ int find_items (char *itemname, char infoarray[ACPI_MAXITEM][128],
 			acpi_labels[label_status]);
 		free(devices[i]);
 	}
+	free(devices);
 
 	return num_devices;
 }
@@ -280,7 +281,7 @@ int acpi_supported (void) {
 	}
 	num = atoi(version);
 	if (num < ACPI_VERSION) {
-		fprintf(stderr, "ACPI subsystem %s too is old, consider upgrading to %i.\n",
+		fprintf(stderr, "acpi: ACPI subsystem %s too is old, consider upgrading to %i.\n",
 				version, ACPI_VERSION);
 		return 0;
 	}
@@ -315,7 +316,7 @@ int acpi_read (int battery, apm_info *info) {
 	
 	buf = get_acpi_file(acpi_batt_info[battery]);
 	if (buf == NULL) {
-		fprintf(stderr, "unable to read %s\n", acpi_batt_info[battery]);
+		fprintf(stderr, "acpi: unable to read %s\n", acpi_batt_info[battery]);
 		perror("read");
 		exit(1);
 	}
@@ -393,7 +394,7 @@ int acpi_read (int battery, apm_info *info) {
 				}
 			}
 			else {
-				fprintf(stderr, "unknown battery state: %s\n", state);
+				fprintf(stderr, "acpi: unknown battery state: %s\n", state);
 			}
 		}
 		else {

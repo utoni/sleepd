@@ -2,7 +2,7 @@
 .SH NAME
 sleepctl \- enable/disable sleepd
 .SH SYNOPSIS
-.B sleeptcl [on|off|status]
+.B sleeptcl [on|off|xon|xoff|status]
 .SH DESCRIPTION
 .BR sleepctl
 allows temporarily disabling of the
@@ -21,6 +21,13 @@ other reasons, such as a failing battery.
 "sleepctl on" re-enables sleeping. If sleeping is re-enabled and sleepd
 has seen no system activity for some time, and has been prevented from
 putting the system to sleep, it may put the system to sleep immediatly.
+.P
+"sleepctl xon" re-enables X11 idle check. Note: The calling user needs to
+set enviroment variables such as DISPLAY and XAUTHORITY, otherwise sleepd
+will not be able to perform an X11 idle check and sleepctl will fail.
+.P
+"sleepctl xoff" disable X11 idle check. This is the default state after
+sleepd was started.
 .P
 "sleepctl status" outputs the current status of sleepd.
 .P

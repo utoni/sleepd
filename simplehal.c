@@ -23,28 +23,28 @@ int connect_hal (void) {
 	dbus_error_init(&error);
 	dbus_ctx = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
 	if (dbus_ctx == NULL) {
-		fprintf(stderr, "error: dbus_bus_get: %s: %s\n",
+		fprintf(stderr, "hal error: dbus_bus_get: %s: %s\n",
 			 error.name, error.message);
 		LIBHAL_FREE_DBUS_ERROR(&error);
 		return 0;
 	}
 	if ((hal_ctx = libhal_ctx_new()) == NULL) {
-		fprintf(stderr, "error: libhal_ctx_new\n");
+		fprintf(stderr, "hal error: libhal_ctx_new\n");
 		LIBHAL_FREE_DBUS_ERROR(&error);
 		return 0;
 	}
 	if (!libhal_ctx_set_dbus_connection(hal_ctx, dbus_ctx)) {
-		fprintf(stderr, "error: libhal_ctx_set_dbus_connection: %s: %s\n",
+		fprintf(stderr, "hal error: libhal_ctx_set_dbus_connection: %s: %s\n",
 			 error.name, error.message);
 		LIBHAL_FREE_DBUS_ERROR(&error);
 		return 0;
 	}
 	if (!libhal_ctx_init(hal_ctx, &error)) {
 		if (dbus_error_is_set(&error)) {
-			fprintf(stderr, "error: libhal_ctx_init: %s: %s\n", error.name, error.message);
+			fprintf(stderr, "hal error: libhal_ctx_init: %s: %s\n", error.name, error.message);
 			LIBHAL_FREE_DBUS_ERROR(&error);
 		}
-		fprintf(stderr, "Could not initialise connection to hald.\n"
+		fprintf(stderr, "hal: Could not initialise connection to hald.\n"
 				 "Normally this means the HAL daemon (hald) is not running or not ready.\n");
 		return 0;
 	}
@@ -89,7 +89,7 @@ signed int get_hal_int (const char *udi, const char *key, int optional) {
 	}
 	else {
 		if (! optional) {
-			fprintf(stderr, "error: libhal_device_get_property_int: %s: %s\n",
+			fprintf(stderr, "hal error: libhal_device_get_property_int: %s: %s\n",
 				 error.name, error.message);
 		}
 		dbus_error_free (&error);
@@ -114,7 +114,7 @@ signed int get_hal_bool (const char *udi, const char *key, int optional) {
 	}
 	else {
 		if (! optional) {
-			fprintf(stderr, "error: libhal_device_get_property_bool: %s: %s\n",
+			fprintf(stderr, "hal error: libhal_device_get_property_bool: %s: %s\n",
 				 error.name, error.message);
 		}
 		dbus_error_free (&error);
@@ -132,7 +132,7 @@ void find_devices (void) {
 	ac_adapters = libhal_find_device_by_capability(hal_ctx, "ac_adapter",
 		&num_ac_adapters, &error);
 	if (dbus_error_is_set (&error)) {
-		fprintf (stderr, "error: %s: %s\n", error.name, error.message);
+		fprintf (stderr, "hal error: %s: %s\n", error.name, error.message);
 		LIBHAL_FREE_DBUS_ERROR (&error);
 	}
 
@@ -141,7 +141,7 @@ void find_devices (void) {
 	batteries = libhal_find_device_by_capability(hal_ctx, "battery",
 		&num_batteries, &error);
 	if (dbus_error_is_set (&error)) {
-		fprintf (stderr, "error: %s: %s\n", error.name, error.message);
+		fprintf (stderr, "hal error: %s: %s\n", error.name, error.message);
 		LIBHAL_FREE_DBUS_ERROR (&error);
 	}
 }
@@ -216,7 +216,7 @@ int simplehal_read (int battery, apm_info *info) {
 		info->battery_status = BATTERY_STATUS_HIGH;
 	}
 	else {
-		fprintf(stderr, "unknown battery state\n");
+		fprintf(stderr, "hal: unknown battery state\n");
 	}
 
 	return 0;

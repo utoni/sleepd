@@ -1,13 +1,15 @@
 /*
  * sleep daemon
  *
- * Copyright 2000-2008 Joey Hess <joeyh@kitenet.net> under the terms of the
- * GNU GPL.
+ * Copyright 2000-2008 Joey Hess <joeyh@kitenet.net>
+ * Copyright 2017 Toni Uhlig <matzeton@googlemail.com>
+ * under the terms of the GNU GPL.
  */
 
 #include <sys/types.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -22,6 +24,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <utmp.h>
+#include <grp.h>
 
 #include "apm.h"
 #include "acpi.h"
@@ -31,8 +34,15 @@
 #ifdef UPOWER
 #include "upower.h"
 #endif
+#ifdef X11
+#include <X11/Xlib.h>
+#include <X11/extensions/scrnsaver.h>
+#endif
 #include "eventmonitor.h"
 #include "sleepd.h"
+#include "ipc.h"
+
+#define ARRAY_SIZE(array) (sizeof((array))/sizeof((array)[0]))
 
 int irqs[MAX_IRQS]; /* irqs to examine have a value of 1 */
 int autoprobe=1;
@@ -66,10 +76,15 @@ int min_tx=TXRATE;
 int min_rx=RXRATE;
 char netdevtx[MAX_NET][44];
 char netdevrx[MAX_NET][44];
+#ifdef X11
+int use_x = 0;
+int xmax_unused = 0;
+#endif
+gid_t shm_grp = 0;
 int debug=0;
 
 void usage () {
-	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n]]\n");
+	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n]] [-x n] [-g name]\n");
 }
 
 void parse_command_line (int argc, char **argv) {
@@ -95,6 +110,8 @@ void parse_command_line (int argc, char **argv) {
 		{"netdev", 2, NULL, 'N'},
 		{"rx-min", 1, NULL, 'r'},
 		{"tx-min", 1, NULL, 't'},
+		{"xunused", 1, NULL, 'x'},
+		{"group", 1, NULL, 'g'},
 		{"force-hal", 0, NULL, 'H'},
 		{"force-upower", 0, NULL, 1},
 		{0, 0, 0, 0}
@@ -111,7 +128,7 @@ void parse_command_line (int argc, char **argv) {
 	char rx_statfile[44];
 
 	while (c != -1) {
-		c=getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN::r:t:H", long_options, NULL);
+		c=getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN:r:t:x:g:H", long_options, NULL);
 		switch (c) {
 			case 's':
 				sleep_command=strdup(optarg);
@@ -199,18 +216,7 @@ void parse_command_line (int argc, char **argv) {
 				}
 				break;
 			case 'N':
-				if (optarg == NULL) {
-					if (netcount == 0) {
-						sprintf(tmpdev, "eth0");
-					}
-					else {
-						fprintf(stderr, "sleepd: multiple -N options with no arguments\n");
-						exit(1);
-					}
-				}
-				else {
-					strncpy(tmpdev, optarg, 8);
-				}
+				strncpy(tmpdev, optarg, 8);
 				sprintf(tx_statfile, TXFILE, tmpdev);
 				sprintf(rx_statfile, RXFILE, tmpdev);
 				if ((access(tx_statfile, R_OK) == 0) &&
@@ -234,6 +240,25 @@ void parse_command_line (int argc, char **argv) {
 			case 'A':
 				require_unused_and_battery=1;
 				break;
+			case 'x':
+#ifdef X11
+				xmax_unused = atoi(optarg);
+#else
+				fprintf(stderr, "sleepd: x11 idle check disabled\n");
+#endif
+				break;
+			case 'g':
+				{
+					struct group *grp = getgrnam(optarg);
+					if (!grp) {
+						perror("getgrnam");
+						exit(1);
+					}
+					shm_grp = grp->gr_gid;
+				}
+				break;
+			default:
+				break;
 		}
 	}
 	if (optind < argc) {
@@ -253,32 +278,6 @@ void parse_command_line (int argc, char **argv) {
 
 	if (force_autoprobe)
 		autoprobe=1;
-}
-
-void loadcontrol (int signum) {
-	int f;
-	char buf[8];
-	
-	if (((f=open(CONTROL_FILE, O_RDONLY)) == -1) ||
-	     (flock(f, LOCK_SH) == -1) ||
-	     (read(f, buf, 7) == -1))
-		return;
-	no_sleep=atoi(buf);
-	close(f);
-
-	signal(SIGHUP, loadcontrol);
-}
-
-void writecontrol (int value) {
-	int f;
-	char buf[10];
-
-	if ((f=open(CONTROL_FILE, O_WRONLY | O_CREAT, 0644)) == -1) {
-		perror(CONTROL_FILE);
-	}
-	snprintf(buf, 9, "%i\n", value);
-	write(f, buf, strlen(buf));
-	close(f);
 }
 
 /**** stat the device file to get an idle time */
@@ -400,7 +399,7 @@ int check_utmp (int total_unused) {
 		if (u->ut_type == USER_PROCESS) {
 			/* get tty. From w.c in procps by Charles Blake. */
 			char tty[5 + sizeof u->ut_line + 1] = "/dev/";
-			int i;
+			unsigned i;
 			for (i=0; i < sizeof u->ut_line; i++) {
 				/* clean up tty if garbled */
 				if (isalnum(u->ut_line[i]) ||
@@ -423,13 +422,106 @@ int check_utmp (int total_unused) {
 	return total_unused;
 }
 
+#ifdef X11
+int check_x11 (void) {
+	Display *display;
+	int event_base, error_base;
+	XScreenSaverInfo info;
+
+	display = XOpenDisplay(NULL);
+	if (!display) {
+		return -1;
+	}
+	if (XScreenSaverQueryExtension(display, &event_base, &error_base) != 0) {
+		if (XScreenSaverQueryInfo(display, DefaultRootWindow(display), &info) == 0) {
+			return -1;
+		}
+	}
+	XCloseDisplay(display);
+
+	int idle = (int)(info.idle/1000.0f);
+	if (!idle && debug)
+		printf("sleepd: activity: x11\n");
+	return (int)(info.idle/1000.0f);
+}
+#endif
+
+char *safe_env (const char *name)
+{
+	char *env = getenv(name);
+	size_t env_len = (env ? strlen(env) : 0);
+	size_t nme_len = strlen(name);
+	char *ret = calloc(nme_len + env_len + 2, sizeof(char)); /* +2 for '=' e.g. NAME=VALUE */
+
+	strncat(ret, name, nme_len);
+	strcat(ret, "=");
+	if (env_len > 0) {
+		strncat(ret, env, env_len);
+	}
+	return ret;
+}
+
+int safe_exec (const char* cmdWithArgs)
+{
+	if (!cmdWithArgs)
+		return -2;
+	pid_t child;
+	if ( (child = fork()) == 0 ) {
+
+		size_t szCur = 0, szMax = 10;
+		char **args = calloc(szMax, sizeof(char**));
+		const char *cmd = NULL;
+		const char *prv = cmdWithArgs;
+		const char *cur = NULL;
+		char *const envp[] = { safe_env("USER"),
+					safe_env("DISPLAY"),
+					safe_env("XAUTHORITY"),
+					NULL };
+
+		while ( (cur = strchr(prv, ' ')) ) {
+			if (cmd == NULL)
+				cmd = strndup(prv, cur-prv);
+
+			args[szCur++] = strndup(prv, cur-prv);
+			if (szCur >= szMax) {
+				szMax *= 2;
+				args = realloc(args, sizeof(char **) * szMax);
+			}
+
+			cur++;
+			prv = cur;
+		}
+		if (cmd == NULL) {
+			cmd = cmdWithArgs;
+		} else {
+			args[szCur++] = strndup(prv, cur-prv);
+		}
+		args[szCur] = NULL;
+		execve(cmd, args, envp);
+		exit(-3);
+	} else if (child != -1) {
+		int retval = 0;
+		waitpid(child, &retval, 0);
+		return retval;
+	}
+	return -4;
+}
+
 void main_loop (void) {
 	int activity=0, sleep_now=0, total_unused=0;
+#ifdef X11
+	char xauthority[IPC_PATHMAX+1];
+	char xdisplay[IPC_XDISPMAX+1];
+	int x_unused=0;
+#endif
 	int sleep_battery=0;
 	int prev_ac_line_status=-1;
 	time_t nowtime, oldtime=0;
 	apm_info ai;
 	double loadavg[1];
+
+	unsetenv("DISPLAY");
+	unsetenv("XAUTHORITY");
 
 	if (use_events) {
 		pthread_t emthread;
@@ -437,6 +529,39 @@ void main_loop (void) {
 	}
 
 	while (1) {
+		if (ipc_lock() == 0) {
+			struct ipc_data *id_ptr = NULL;
+			ipc_getshmptr(&id_ptr);
+			if (id_ptr != NULL) {
+				no_sleep = GET_FLAG(id_ptr, FLG_ENABLED) == 0;
+#ifdef X11
+				if (!use_x && GET_FLAG(id_ptr, FLG_USEX11) != 0) {
+					memset(&xauthority[0], '\0', ARRAY_SIZE(xauthority));
+					memset(&xdisplay[0], '\0', ARRAY_SIZE(xdisplay));
+					strncpy(&xauthority[0], &id_ptr->xauthority[0], IPC_PATHMAX);
+					strncpy(&xdisplay[0], &id_ptr->xdisplay[0], IPC_XDISPMAX);
+					setenv("XAUTHORITY", &xauthority[0], 1);
+					setenv("DISPLAY", &xdisplay[0], 1);
+					if (debug) {
+						printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTH: %s)\n", &xdisplay[0], &xauthority[0]);
+					}
+					if (check_x11() == -1) {
+						UNSET_FLAG(id_ptr, FLG_USEX11);
+						syslog(LOG_ERR, "X11 idle check failed, disable.\n");
+					}
+				}
+				if (GET_FLAG(id_ptr, FLG_USEX11) == 0) {
+					memset(&id_ptr->xauthority[0], '\0', IPC_PATHMAX);
+					memset(&id_ptr->xdisplay[0], '\0', IPC_XDISPMAX);
+					unsetenv("DISPLAY");
+					unsetenv("XAUTHORITY");
+				}
+				use_x = GET_FLAG(id_ptr, FLG_USEX11) != 0;
+#endif
+			}
+			ipc_unlock();
+		}
+
 		activity=0;
 		if (use_events) {
 			pthread_mutex_lock(&condition_mutex);
@@ -467,8 +592,19 @@ void main_loop (void) {
 			abort();
 		}
 #endif
+#ifdef X11
+		if (use_x) {
+			x_unused = check_x11();
+			if (x_unused == -1) {
+				syslog(LOG_ERR, "X11 idle check failed, disable.\n");
+				use_x = 0;
+			}
+			if (x_unused == 0)
+				activity=1;
+		}
+#endif
 
-		if (debug)
+		if (debug && ai.battery_status != BATTERY_STATUS_ABSENT)
 			printf("sleepd: battery level: %d%%, remaining time: %c%d:%02d\n",
 				ai.battery_percentage,
 				(ai.battery_time < 0) ? '-' : ' ',
@@ -483,7 +619,7 @@ void main_loop (void) {
 
 		if (sleep_battery && ! require_unused_and_battery) {
 			syslog(LOG_NOTICE, "battery level %d%% is below %d%%; forcing hibernation", ai.battery_percentage, min_batt);
-			if (system(hibernate_command) != 0)
+			if (safe_exec(hibernate_command) != 0)
 				syslog(LOG_ERR, "%s failed", hibernate_command);
 			/* This counts as activity; to prevent double sleeps. */
 			if (debug)
@@ -528,6 +664,16 @@ void main_loop (void) {
 			total_unused=check_utmp(total_unused);
 		}
 
+		if (ipc_lock() == 0) {
+			struct ipc_data *id_ptr = NULL;
+			ipc_getshmptr(&id_ptr);
+			id_ptr->total_unused = total_unused;
+#ifdef X11
+			id_ptr->x_unused = x_unused;
+#endif
+			ipc_unlock();
+		}
+
 		sleep(sleep_time);
 
 		if (use_events) {
@@ -540,41 +686,62 @@ void main_loop (void) {
 			pthread_mutex_unlock(&activity_mutex);
 		}
 
+#ifdef X11
+		if (use_x && ! no_sleep) {
+			if (xmax_unused > 0) {
+				sleep_now = x_unused >= xmax_unused;
+			} else if (max_unused > 0) {
+				sleep_now = x_unused >= max_unused;
+			}
+			if (sleep_now) {
+				syslog(LOG_NOTICE, "x11 inactive");
+				activity=0;
+				total_unused = x_unused;
+			}
+		}
+#endif
+
 		if (activity) {
 			total_unused = 0;
 		}
 		else {
 			total_unused += sleep_time;
-			if (ai.ac_line_status == 1) {
+			if (! sleep_now && ai.ac_line_status == 1) {
 				/* On wall power. */
 				if (ac_max_unused > 0) {
 					sleep_now = total_unused >= ac_max_unused;
 				}
 			}
-			else if (max_unused > 0) {
+			else if (! sleep_now && max_unused > 0) {
 				sleep_now = total_unused >= max_unused;
 			}
 
 			if (sleep_now && ! no_sleep && ! require_unused_and_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds; forcing sleep", total_unused);
-				if (system(sleep_command) != 0)
+				if (safe_exec(sleep_command) != 0)
 					syslog(LOG_ERR, "%s failed", sleep_command);
 				total_unused=0;
+#ifdef X11
+				x_unused=0;
+#endif
 				oldtime=0;
 				sleep_now=0;
 			}
 			else if (sleep_now && ! no_sleep && sleep_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds and battery level %d%% is below %d%%; forcing hibernaton", 
 				       total_unused, ai.battery_percentage, min_batt);
-				if (system(hibernate_command) != 0)
+				if (safe_exec(hibernate_command) != 0)
 					syslog(LOG_ERR, "%s failed", hibernate_command);
 				total_unused=0;
+#ifdef X11
+				x_unused=0;
+#endif
 				oldtime=0;
 				sleep_now=0;
 				sleep_battery=0;
 			}
 		}
-		
+
 		/*
 		 * Keep track of how long it's been since we were last
 		 * here. If it was much longer than sleep_time, the system
@@ -585,7 +752,6 @@ void main_loop (void) {
 		/* The 1 is a necessary fudge factor. */
 		if (oldtime && nowtime - sleep_time > oldtime + 1) {
 			no_sleep=0; /* reset, since they must have put it to sleep */
-			writecontrol(no_sleep);
 			syslog(LOG_NOTICE,
 					"%i sec sleep; resetting timer",
 					(int)(nowtime - oldtime));
@@ -598,6 +764,7 @@ void main_loop (void) {
 void cleanup (int signum) {
 	if (daemonize)
 		unlink(PID_FILE);
+	ipc_close_master();
 	exit(0);
 }
 
@@ -609,11 +776,10 @@ int main (int argc, char **argv) {
 	/* Log to the console if not daemonizing. */
 	openlog("sleepd", LOG_PID | (daemonize ? 0 : LOG_PERROR), LOG_DAEMON);
 	
-	/* Set up a signal handler for SIGTERM to clean up things. */
+	/* Set up a signal handler for SIGTERM/SIGINT to clean up things. */
 	signal(SIGTERM, cleanup);
-	/* And a handler for SIGHUP, to reaload control file. */
-	signal(SIGHUP, loadcontrol);
-	loadcontrol(0);
+	if (!daemonize)
+		signal(SIGINT, cleanup);
 
 	if (! use_events) {
 		if (! have_irqs && ! autoprobe) {
@@ -695,7 +861,11 @@ int main (int argc, char **argv) {
 	if (! hibernate_command) {
 		hibernate_command=sleep_command;
 	}
-	
+
+	if (ipc_init_master(shm_grp) != 0) {
+		perror("ipc_init");
+		exit(1);
+        }
 	main_loop();
 	
 	return(0); // never reached

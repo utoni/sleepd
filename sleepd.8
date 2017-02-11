@@ -3,7 +3,7 @@
 sleepd \- puts a laptop to sleep during inactivity or on low battery
 .SH SYNOPSIS
 .B sleepd
-.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n]]"
+.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n]] [-x n] [-g name]"
 .SH DESCRIPTION
 .BR sleepd
 is a daemon to force laptops to go to sleep after some period of
@@ -107,6 +107,12 @@ seconds, which should be fine generally.
 .TP
 .B \-H, \-\-force-upower
 Force UPower to be used instead of ACPI or other methods to query battery status.
+.TP
+.B \-x, \-\-xunused
+Force sleep after n seconds X11 inactivity. Defaults to "-u,--unused". Requires X11 support. See man 1 sleepctl for more info.
+.TP
+.B \-g, \-\-group
+Change the group of the shared memory segment to name.
 .SH "SEE ALSO"
 .BR sleepctl (1)
 .P

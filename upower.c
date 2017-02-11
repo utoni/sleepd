@@ -136,7 +136,7 @@ int upower_read(int battery, apm_info *info) {
 		info->battery_status = BATTERY_STATUS_HIGH;
 	}
 	else {
-		fprintf(stderr, "unknown battery state\n");
+		fprintf(stderr, "upower: unknown battery state\n");
 	}
 
 	if (ctx.percentage < 0) {

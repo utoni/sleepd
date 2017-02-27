@@ -1,0 +1,7 @@
+language: c
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y debhelper libapm-dev dpkg-dev libupower-glib-dev libx11-dev libxss-dev
+  
+script: make all && git clean -df && dpkg-buildpackage -b -us -uc

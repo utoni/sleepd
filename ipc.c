@@ -15,6 +15,7 @@
 
 struct ipc_data *ip = NULL;
 
+#ifdef IS_MASTER
 int ipc_init_master (gid_t shm_grp) {
 	int shm_fd = -1;
 
@@ -62,6 +63,17 @@ int ipc_init_master (gid_t shm_grp) {
 	return 0;
 }
 
+void ipc_close_master (void) {
+	if (ip) {
+		ipc_lock();
+		UNSET_FLAG(ip, FLG_RUNNING);
+		ipc_unlock();
+	}
+	ipc_close_slave();
+	shm_unlink(SHM_NAME);
+}
+#endif
+
 int ipc_init_slave (void) {
 	int shm_fd = -1;
 
@@ -88,16 +100,6 @@ int ipc_init_slave (void) {
 		pthread_mutex_unlock(&ip->shm_mtx);
         } else return -1;
         return 0;
-}
-
-void ipc_close_master (void) {
-	if (ip) {
-		ipc_lock();
-		UNSET_FLAG(ip, FLG_RUNNING);
-		ipc_unlock();
-	}
-	ipc_close_slave();
-	shm_unlink(SHM_NAME);
 }
 
 void ipc_close_slave (void) {

@@ -34,9 +34,11 @@ struct ipc_data
 	int x_unused;
 };
 
+#ifdef IS_MASTER
 extern int ipc_init_master (gid_t shm_gid);
-extern int ipc_init_slave (void);
 extern void ipc_close_master (void);
+#endif
+extern int ipc_init_slave (void);
 extern void ipc_close_slave (void);
 
 extern int ipc_lock (void);

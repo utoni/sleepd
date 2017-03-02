@@ -179,43 +179,43 @@ int find_items (char *itemname, char infoarray[ACPI_MAXITEM][128],
 	sprintf(pathname, SYSFS_PATH);
 
 	dir = opendir(pathname);
-	if (dir == NULL)
-		return 0;
-	while ((ent = readdir(dir))) {
-		char filename[128];
-		char buf[1024];
+	if (dir != NULL) {
+		while ((ent = readdir(dir))) {
+			char filename[128];
+			char buf[1024];
 
-		if (!strcmp(".", ent->d_name) || 
-		    !strcmp("..", ent->d_name))
-			continue;
-
-		snprintf(filename, sizeof(filename), SYSFS_PATH "/%s/type", ent->d_name);
-		int fd = open(filename, O_RDONLY);
-		if (fd != -1) {
-			int end = read(fd, buf, sizeof(buf));
-			buf[end-1] = '\0';
-			close(fd);
-			if (strstr(buf, itemname) != buf)
+			if (!strcmp(".", ent->d_name) || 
+			    !strcmp("..", ent->d_name))
 				continue;
+
+			snprintf(filename, sizeof(filename), SYSFS_PATH "/%s/type", ent->d_name);
+			int fd = open(filename, O_RDONLY);
+			if (fd != -1) {
+				int end = read(fd, buf, sizeof(buf));
+				buf[end-1] = '\0';
+				close(fd);
+				if (strstr(buf, itemname) != buf)
+					continue;
+			}
+
+			devices[num_devices]=strdup(ent->d_name);
+			num_devices++;
+			if (num_devices >= ACPI_MAXITEM)
+				break;
 		}
+		closedir(dir);
 
-		devices[num_devices]=strdup(ent->d_name);
-		num_devices++;
-		if (num_devices >= ACPI_MAXITEM)
-			break;
-	}
-	closedir(dir);
+		/* Sort, since readdir can return in any order. /sys/ does
+		 * sometimes list BAT1 before BAT0. */
+		qsort(devices, num_devices, sizeof(char *), _acpi_compare_strings);
 
-	/* Sort, since readdir can return in any order. /sys/ does
-	 * sometimes list BAT1 before BAT0. */
-	qsort(devices, num_devices, sizeof(char *), _acpi_compare_strings);
-
-	for (i = 0; i < num_devices; i++) {
-		snprintf(infoarray[i], sizeof(infoarray[i]), SYSFS_PATH "/%s/%s", devices[i],
-			acpi_labels[label_info]);
-		snprintf(statusarray[i], sizeof(statusarray[i]), SYSFS_PATH "/%s/%s", devices[i],
-			acpi_labels[label_status]);
-		free(devices[i]);
+		for (i = 0; i < num_devices; i++) {
+			snprintf(infoarray[i], sizeof(infoarray[i]), SYSFS_PATH "/%s/%s", devices[i],
+				acpi_labels[label_info]);
+			snprintf(statusarray[i], sizeof(statusarray[i]), SYSFS_PATH "/%s/%s", devices[i],
+				acpi_labels[label_status]);
+			free(devices[i]);
+		}
 	}
 	free(devices);
 
@@ -254,8 +254,6 @@ int on_ac_power (void) {
 		char *online=get_acpi_value(acpi_ac_adapter_info[i], acpi_labels[label_ac_state]);
 		if (online && atoi(online))
 			return 1;
-		else
-			return 0;
 	}
 	return 0;
 }

@@ -43,6 +43,7 @@
 #include "ipc.h"
 
 #define ARRAY_SIZE(array) (sizeof((array))/sizeof((array)[0]))
+#define ENV_LEN 1024
 
 int irqs[MAX_IRQS]; /* irqs to examine have a value of 1 */
 int autoprobe=1;
@@ -74,8 +75,8 @@ int use_utmp=0;
 int use_net=0;
 int min_tx=TXRATE;
 int min_rx=RXRATE;
-char netdevtx[MAX_NET][44];
-char netdevrx[MAX_NET][44];
+char netdevtx[MAX_NET][45];
+char netdevrx[MAX_NET][45];
 #ifdef X11
 int use_x = 0;
 int xmax_unused = 0;
@@ -123,7 +124,7 @@ void parse_command_line (int argc, char **argv) {
 	int event=0;
 	int netcount=0;
 	int result;
-	char tmpdev[8];
+	char tmpdev[9];
 	char tx_statfile[44];
 	char rx_statfile[44];
 
@@ -131,9 +132,17 @@ void parse_command_line (int argc, char **argv) {
 		c=getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN:r:t:x:g:H", long_options, NULL);
 		switch (c) {
 			case 's':
+				if (sleep_command) {
+					fprintf(stderr, "sleepd: multiple -s found\n");
+					exit(1);
+				}
 				sleep_command=strdup(optarg);
 				break;
 			case 'd':
+				if (hibernate_command) {
+					fprintf(stderr, "sleepd: multiple -d found\n");
+					exit(1);
+				}
 				hibernate_command=strdup(optarg);
 				break;
 			case 'n':
@@ -216,11 +225,14 @@ void parse_command_line (int argc, char **argv) {
 				}
 				break;
 			case 'N':
+				memset(&tmpdev[0], '\0', ARRAY_SIZE(tmpdev));
 				strncpy(tmpdev, optarg, 8);
-				sprintf(tx_statfile, TXFILE, tmpdev);
-				sprintf(rx_statfile, RXFILE, tmpdev);
+				snprintf(tx_statfile, ARRAY_SIZE(tx_statfile), TXFILE, tmpdev);
+				snprintf(rx_statfile, ARRAY_SIZE(rx_statfile), RXFILE, tmpdev);
 				if ((access(tx_statfile, R_OK) == 0) &&
 				    (access(rx_statfile, R_OK) == 0)) {
+					memset(&netdevtx[netcount][0], '\0', ARRAY_SIZE(netdevtx[netcount]));
+					memset(&netdevrx[netcount][0], '\0', ARRAY_SIZE(netdevrx[netcount]));
 					strncpy(netdevtx[netcount], tx_statfile, 44);
 					strncpy(netdevrx[netcount], rx_statfile, 44);
 					use_net=1;
@@ -269,9 +281,10 @@ void parse_command_line (int argc, char **argv) {
 	if (use_events)
 		strncpy(eventData.events[event], "", 1);
 
-	if (use_net)
+	if (use_net) {
 		strncpy(netdevtx[netcount], "", 1);
 		strncpy(netdevrx[netcount], "", 1);
+	}
 
 	if (noirq)
 		autoprobe=0;
@@ -321,7 +334,7 @@ int check_irqs (int activity, int autoprobe) {
 			}
 		}
 		if (sscanf(line,"%d: %ld",&i, &v) == 2 &&
-		    i < MAX_IRQS &&
+		    i < MAX_IRQS && i >= 0 &&
 		    (do_this_one || irqs[i]) && irq_count[i] != v) {
 			if (debug)
 				printf("sleepd: activity: irq %d\n", i);
@@ -448,20 +461,29 @@ int check_x11 (void) {
 
 char *safe_env (const char *name)
 {
-	char *env = getenv(name);
-	size_t env_len = (env ? strlen(env) : 0);
-	size_t nme_len = strlen(name);
-	char *ret = calloc(nme_len + env_len + 2, sizeof(char)); /* +2 for '=' e.g. NAME=VALUE */
+	if (! name)
+		return NULL;
+
+	const char *env = getenv(name);
+	if (! env)
+		return NULL;
+
+	const unsigned max_envlen = ENV_LEN;
+	char newenv[max_envlen+1];
+	memset(&newenv[0], '\0', ARRAY_SIZE(newenv));
+	strncpy(&newenv[0], env, max_envlen);
+
+	size_t env_len = strnlen(&newenv[0], max_envlen);
+	size_t nme_len = strnlen(name, max_envlen);
+	char *ret = calloc(nme_len + env_len + 2, sizeof(char)); /* +2 for '=' and '\0' e.g. NAME=VALUE */
 
 	strncat(ret, name, nme_len);
 	strcat(ret, "=");
-	if (env_len > 0) {
-		strncat(ret, env, env_len);
-	}
+	strncat(ret, env, env_len);
 	return ret;
 }
 
-int safe_exec (const char* cmdWithArgs)
+int safe_exec (const char *cmdWithArgs)
 {
 	if (!cmdWithArgs)
 		return -2;
@@ -469,14 +491,20 @@ int safe_exec (const char* cmdWithArgs)
 	if ( (child = fork()) == 0 ) {
 
 		size_t szCur = 0, szMax = 10;
-		char **args = calloc(szMax, sizeof(char**));
+		char **args = calloc(szMax, sizeof(char *));
 		const char *cmd = NULL;
 		const char *prv = cmdWithArgs;
 		const char *cur = NULL;
-		char *const envp[] = { safe_env("USER"),
-					safe_env("DISPLAY"),
-					safe_env("XAUTHORITY"),
-					NULL };
+
+		const char *const envnames[] = { "USER", "DISPLAY", "XAUTHORITY", NULL };
+		const unsigned maxEnv = ARRAY_SIZE(envnames);
+		char *envp[maxEnv];
+		unsigned i = 0;
+		do {
+			char *tmp = safe_env(envnames[i]);
+			envp[i] = strndup(tmp, ENV_LEN);
+			free(tmp);
+		} while (++i < maxEnv);
 
 		while ( (cur = strchr(prv, ' ')) ) {
 			if (cmd == NULL)
@@ -485,7 +513,7 @@ int safe_exec (const char* cmdWithArgs)
 			args[szCur++] = strndup(prv, cur-prv);
 			if (szCur >= szMax) {
 				szMax *= 2;
-				args = realloc(args, sizeof(char **) * szMax);
+				args = realloc(args, sizeof(char *) * szMax);
 			}
 
 			cur++;

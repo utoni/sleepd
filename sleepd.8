@@ -26,7 +26,7 @@ sleep.
 Show summary of options.
 .TP
 .B \-n, \-\-nodaemon
-Don't fork to background; run in forground.
+Don't fork to background; run in foreground.
 .TP
 .B \-v, \-\-verbose
 Output status messages.
@@ -59,7 +59,7 @@ time limit from \-u.
 .TP
 .B \-i, \-\-irq
 Adds an irq to the list that is watched. Using this switch disables
-automatic detection of keyboard and mouse irqs unless -a is specified as
+automatic detection of keyboard and mouse irqs unless \-a is specified as
 well.
 .TP
 .B \-I, \-\-no-irq
@@ -69,7 +69,7 @@ This switch disables interrupt polling.
 Automatically detect and watch mouse and keyboard irqs.
 .TP
 .B \-s, \-\-sleep-command
-Command to run to put the laptop to sleep. Defaults to "apm -s" for systems
+Command to run to put the laptop to sleep. Defaults to "apm \-s" for systems
 with APM and "pm-suspend" for systems with ACPI.
 .TP
 .B \-b, \-\-battery
@@ -109,7 +109,7 @@ seconds, which should be fine generally.
 Force UPower to be used instead of ACPI or other methods to query battery status.
 .TP
 .B \-x, \-\-xunused
-Force sleep after n seconds X11 inactivity. Defaults to "-u,--unused". Requires X11 support. See man 1 sleepctl for more info.
+Force sleep after n seconds X11 inactivity. Defaults to "\-u,\-\-unused". Requires X11 support. See man 1 sleepctl for more info.
 .TP
 .B \-g, \-\-group
 Change the group of the shared memory segment to name.

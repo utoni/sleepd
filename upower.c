@@ -9,7 +9,9 @@
 #include <upower.h>
 #include "apm.h"
 
-int num_batteries = 0;
+#define MAX_RETRIES 3
+
+static UpClient *up = NULL;
 
 struct context {
 	int current;
@@ -28,7 +30,7 @@ static void get_devinfo(gpointer device, gpointer result)
 	guint kind;
 	gint64 time_to_empty;
 	gint64 time_to_full;
-	struct context * ctx = result;
+	struct context *ctx = result;
 
 	g_object_get(G_OBJECT(device), "percentage", &percentage,
 		"online", &online,
@@ -53,31 +55,29 @@ static void get_devinfo(gpointer device, gpointer result)
 	}
 }
 
-int upower_supported (void) {
-	UpClient * up;
+int upower_supported(void)
+{
 	up = up_client_new();
 
 	if (!up) {
 		return 0;
-	}
-	else {
-		GPtrArray * devices = up_client_get_devices(up);
+	} else {
+		GPtrArray *devices = up_client_get_devices(up);
 
 		if (!devices) {
-			g_object_unref(up);
 			return 0;
 		} else {
 			g_ptr_array_unref(devices);
-			g_object_unref(up);
 			return 1;
 		}
 	}
 }
 
 /* Fill the passed apm_info struct. */
-int upower_read(int battery, apm_info *info) {
-	UpClient * up;
-	GPtrArray * devices = NULL;
+int upower_read(int battery, apm_info *info)
+{
+	GPtrArray *devices = NULL;
+	static int retries = 0;
 
 	up = up_client_new();
 
@@ -93,9 +93,14 @@ int upower_read(int battery, apm_info *info) {
 	devices = up_client_get_devices(up);
 
 	if (!devices) {
-		return -1;
+		retries++;
+		if (retries < MAX_RETRIES)
+			return 0; /* fine immediately after hibernation */
+		else
+			return -1;
 	}
 
+	retries = 0;
 	info->battery_flags = 0;
 	info->using_minutes = 0;
 
@@ -122,20 +127,16 @@ int upower_read(int battery, apm_info *info) {
 		 * required to be available; this is good enough */
 		if (info->battery_percentage < 1) {
 			info->battery_status = BATTERY_STATUS_CRITICAL;
-		}
-		else if (info->battery_percentage < 10) {
+		} else if (info->battery_percentage < 10) {
 			info->battery_status = BATTERY_STATUS_LOW;
 		}
-	}
-	else if (info->ac_line_status && ctx.state == UP_DEVICE_STATE_CHARGING) {
+	} else if (info->ac_line_status && ctx.state == UP_DEVICE_STATE_CHARGING) {
 		info->battery_status = BATTERY_STATUS_CHARGING;
 		info->battery_flags = info->battery_flags | BATTERY_FLAGS_CHARGING;
-	}
-	else if (info->ac_line_status) {
+	} else if (info->ac_line_status) {
 		/* Must be fully charged. */
 		info->battery_status = BATTERY_STATUS_HIGH;
-	}
-	else {
+	} else {
 		fprintf(stderr, "upower: unknown battery state\n");
 	}
 
@@ -146,6 +147,5 @@ int upower_read(int battery, apm_info *info) {
 	}
 
 	g_ptr_array_free(devices, TRUE);
-	g_object_unref(up);
 	return 0;
 }

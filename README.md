@@ -3,7 +3,7 @@
   <img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/11901/badge.svg"/>
 </a>
 
-sleepd-2.09
+sleepd-2.10
 ========
 
 sleepd is a daemon to to put a machine to sleep if it is not being used or if the battery is low (if present). <br />

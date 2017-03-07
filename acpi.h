@@ -4,10 +4,10 @@
 
 /* Define ACPI_THERMAL to make the library support finding info about thermal
  * sources. */
-//#define ACPI_THERMAL 1
+/* #define ACPI_THERMAL 1 */
 
 /* Define ACPI_APM to get the acpi_read function, which is like apm_read. */
-//#define ACPI_APM 1
+/* #define ACPI_APM 1 */
 
 /* The lowest version of ACPI proc files supported. */
 #define ACPI_VERSION 20011018

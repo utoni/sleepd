@@ -118,7 +118,7 @@ int main (int argc, char **argv) {
 				SET_FLAG(id, FLG_USEX11);
 				show_status(id);
 			}
-			else printf("sleepctl: Enviroment variables DISPLAY or XAUTHORITY not set.\n");
+			else printf("sleepctl: Environment variables DISPLAY or XAUTHORITY not set.\n");
 		}
 		else printf("sleepctl: <not implemented>\n");
 	}

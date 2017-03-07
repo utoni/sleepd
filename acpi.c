@@ -170,7 +170,7 @@ int find_items (char *itemname, char infoarray[ACPI_MAXITEM][128],
 		                char statusarray[ACPI_MAXITEM][128]) {
 	DIR *dir;
 	struct dirent *ent;
-	int num_devices=0;
+	int num_devices = 0;
 	int i;
 	char **devices = malloc(ACPI_MAXITEM * sizeof(char *));
 	
@@ -198,7 +198,7 @@ int find_items (char *itemname, char infoarray[ACPI_MAXITEM][128],
 					continue;
 			}
 
-			devices[num_devices]=strdup(ent->d_name);
+			devices[num_devices] = strdup(ent->d_name);
 			num_devices++;
 			if (num_devices >= ACPI_MAXITEM)
 				break;

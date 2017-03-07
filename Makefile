@@ -27,10 +27,11 @@ SLEEPD_LIBS=-lpthread -lrt
 SLEEPCTL_OBJS_BUILD=sleepctl.o ipc.o
 SLEEPCTL_LIBS=-lpthread -lrt
 
-all: pre-build $(BINS)
+all: $(BINS)
 
-pre-build:
+$(BUILDDIR)/.pre-build:
 	mkdir -p $(BUILDDIR) $(BUILDDIR)/sleepd-objs $(BUILDDIR)/sleepctl-objs
+	touch $@
 
 ifdef USE_HAL
 SLEEPD_LIBS+=$(shell pkg-config --libs hal)
@@ -73,13 +74,14 @@ $(SLEEPD_OBJS_BUILD_PREFIX):
 $(SLEEPCTL_OBJS_PREFIX):
 	$(CC) $(CFLAGS) -c -o $@ $(patsubst %.o,%.c,$(notdir $@))
 
-$(BUILDDIR)/sleepd: $(SLEEPD_OBJS_PREFIX) $(SLEEPD_OBJS_BUILD_PREFIX)
+$(BUILDDIR)/sleepd: $(BUILDDIR)/.pre-build $(SLEEPD_OBJS_PREFIX) $(SLEEPD_OBJS_BUILD_PREFIX)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SLEEPD_OBJS_PREFIX) $(SLEEPD_OBJS_BUILD_PREFIX) $(SLEEPD_LIBS)
 
-$(BUILDDIR)/sleepctl: $(SLEEPCTL_OBJS_PREFIX)
+$(BUILDDIR)/sleepctl: $(BUILDDIR)/.pre-build $(SLEEPCTL_OBJS_PREFIX)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SLEEPCTL_OBJS_PREFIX) $(SLEEPCTL_LIBS)
 
 clean:
+	rm -f $(BUILDDIR)/.pre-build
 	rm -f $(BUILDDIR)/sleepd $(BUILDDIR)/sleepctl
 	rm -f $(BUILDDIR)/sleepd-objs/*.o $(BUILDDIR)/sleepctl-objs/*.o
 	rmdir $(BUILDDIR)/sleepd-objs $(BUILDDIR)/sleepctl-objs 2>/dev/null || true
@@ -92,3 +94,5 @@ install: $(BINS)
 	install -m 0644 sleepd.8 $(PREFIX)/usr/share/man/man8/
 	$(INSTALL_PROGRAM) $(BUILDDIR)/sleepctl $(PREFIX)/usr/bin/
 	install -m 0644 sleepctl.1 $(PREFIX)/usr/share/man/man1/
+
+.PHONY: all clean

@@ -490,42 +490,57 @@ int safe_exec (const char *cmdWithArgs)
 	pid_t child;
 	if ( (child = fork()) == 0 ) {
 
-		size_t szCur = 0, szMax = 10;
+		int szCur = 0, szMax = 10;
 		char **args = calloc(szMax, sizeof(char *));
 		const char *cmd = NULL;
 		const char *prv = cmdWithArgs;
 		const char *cur = NULL;
 
+		/* prepend enviroment variables for execve */
 		const char *const envnames[] = { "USER", "DISPLAY", "XAUTHORITY", NULL };
 		const unsigned maxEnv = ARRAY_SIZE(envnames);
 		char *envp[maxEnv];
-		unsigned i = 0;
+		unsigned i = 0, j = 0;
+
+		/* parse env */
+		memset(&envp[0], '\0', ARRAY_SIZE(envp) * sizeof(char *));
 		do {
 			char *tmp = safe_env(envnames[i]);
-			envp[i] = strndup(tmp, ENV_LEN);
-			free(tmp);
+			if (tmp) {
+				envp[j] = strndup(tmp, ENV_LEN);
+				free(tmp);
+				j++;
+			}
 		} while (++i < maxEnv);
 
+		/* parse args */
 		while ( (cur = strchr(prv, ' ')) ) {
 			if (cmd == NULL)
 				cmd = strndup(prv, cur-prv);
 
-			args[szCur++] = strndup(prv, cur-prv);
-			if (szCur >= szMax) {
+			/* make space at least for two new elements (strndup + \0) */
+			if (szCur >= szMax-2) {
 				szMax *= 2;
 				args = realloc(args, sizeof(char *) * szMax);
 			}
+			args[szCur++] = strndup(prv, cur-prv);
 
 			cur++;
 			prv = cur;
 		}
+
 		if (cmd == NULL) {
 			cmd = cmdWithArgs;
+			args[0] = strndup(cmd, ENV_LEN);
+			szCur++;
 		} else {
 			args[szCur++] = strndup(prv, cur-prv);
 		}
 		args[szCur] = NULL;
-		execve(cmd, args, envp);
+
+		errno = 0;
+		if (execve(cmd, args, envp) != 0)
+			perror("execve");
 		exit(-3);
 	} else if (child != -1) {
 		int retval = 0;
@@ -563,22 +578,22 @@ void main_loop (void) {
 			if (id_ptr != NULL) {
 				no_sleep = GET_FLAG(id_ptr, FLG_ENABLED) == 0;
 #ifdef X11
-				if (!use_x && GET_FLAG(id_ptr, FLG_USEX11) != 0) {
+				if (GET_FLAG(id_ptr, FLG_USEX11) != 0) {
 					memset(&xauthority[0], '\0', ARRAY_SIZE(xauthority));
 					memset(&xdisplay[0], '\0', ARRAY_SIZE(xdisplay));
 					strncpy(&xauthority[0], &id_ptr->xauthority[0], IPC_PATHMAX);
 					strncpy(&xdisplay[0], &id_ptr->xdisplay[0], IPC_XDISPMAX);
 					setenv("XAUTHORITY", &xauthority[0], 1);
 					setenv("DISPLAY", &xdisplay[0], 1);
-					if (debug) {
-						printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTH: %s)\n", &xdisplay[0], &xauthority[0]);
+					if (debug && !use_x) {
+						printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTHORITY: %s)\n", &xdisplay[0], &xauthority[0]);
 					}
 					if (check_x11() == -1) {
 						UNSET_FLAG(id_ptr, FLG_USEX11);
 						syslog(LOG_ERR, "X11 idle check failed, disable.\n");
 					}
 				}
-				if (GET_FLAG(id_ptr, FLG_USEX11) == 0) {
+				else if (GET_FLAG(id_ptr, FLG_USEX11) == 0) {
 					memset(&id_ptr->xauthority[0], '\0', IPC_PATHMAX);
 					memset(&id_ptr->xdisplay[0], '\0', IPC_XDISPMAX);
 					unsetenv("DISPLAY");

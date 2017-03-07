@@ -72,7 +72,8 @@ void ipc_close_master (void) {
 	ipc_close_slave();
 	shm_unlink(SHM_NAME);
 }
-#endif
+
+#else
 
 int ipc_init_slave (void) {
 	int shm_fd = -1;
@@ -101,6 +102,7 @@ int ipc_init_slave (void) {
         } else return -1;
         return 0;
 }
+#endif
 
 void ipc_close_slave (void) {
 	if (munmap(ip, sizeof(struct ipc_data)) == 0)

@@ -37,8 +37,9 @@ struct ipc_data
 #ifdef IS_MASTER
 extern int ipc_init_master (gid_t shm_gid);
 extern void ipc_close_master (void);
-#endif
+#else
 extern int ipc_init_slave (void);
+#endif
 extern void ipc_close_slave (void);
 
 extern int ipc_lock (void);

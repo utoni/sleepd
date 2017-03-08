@@ -1,0 +1,36 @@
+sleepd ChangeLog
+================
+(C) 2000-2008 Joey Hess <joeyh@kitenet.net>
+(C) 2017 Toni Uhlig <matzeton@googlemail.com>
+
+
+VERSION 2.10
+    * Replaced file based ipc with modern POSIX shared memory / POSIX mutex.
+    * Bugfixes including a memory leak, wrong acpi battery count if more than
+      one battery present
+    * Coverity issues fixed
+
+
+VERSION 2.05
+  CHANGES:
+    * Stop building with flash-in-the-pan HAL. Instead update acpi interface to
+      use /sys/class/power_supply. Note that this needs acpica_version 20011018.
+      Closes: #613169, #678966 (Patch developed by Andrew Shadura.)
+    * Orphaned the package.
+    * Add UPower support.
+      Use Debhelper 9, so we can have hardening flags automatically.
+
+
+VERSION 1.13
+  CHANGES:
+    * Avoid crash by ignoring high irqs greater than 254 (assumption is these will
+      not be irqs we care about). Thanks, Jeff Strunk.
+    * Debhelper 7, minimal rules file.
+    *Update copyright file.
+
+
+VERSION 1.12
+  CHANGES:
+    * Write status back out to control file when resume from manual sleep
+      causes sleeping to be re-enabled, so that sleepctl will see the correct
+      status in this case. Closes: #501708

@@ -1,5 +1,5 @@
 CFLAGS     ?= -O2 -g -Wall -Wunused
-CFLAGS     += -DACPI_APM -pthread
+CFLAGS     += -pthread
 BUILDDIR   ?= .
 BINS        = $(BUILDDIR)/sleepd $(BUILDDIR)/sleepctl
 PREFIX      = /

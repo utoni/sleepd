@@ -1,0 +1,28 @@
+#!/bin/sh
+#DEBHELPER#
+
+set -e
+
+# Transition from old filename.
+if [ -e /var/lib/apm-sleep/control ] && [ ! -e /var/run/sleepd.ctl ]; then
+	mv -f /var/lib/apm-sleep/control /var/run/sleepd.ctl
+	rmdir --ignore-fail-on-non-empty -p /var/lib/apm-sleep
+fi
+
+# Transition to sleepd name from apm-sleep. Doing the seds on the old
+# files makes them identical to the versions I am now distributing, so dpkg
+# doesn't prompt unnecessariliy. (Well, it does now. This may change as I
+# modify the files later..)
+if [ -e /var/run/apm-sleep.ctl ] && [ ! -e /var/run/sleepd.ctl ]; then
+	mv -f /var/run/apm-sleep.ctl /var/run/sleepd.ctl
+fi
+if [ -e /etc/init.d/apm-sleep ] && [ ! -e /etc/init.d/sleepd ]; then
+	sed 's/apm-sleep/sleepd/g' < /etc/init.d/apm-sleep > /etc/init.d/sleepd
+	chmod 755 /etc/init.d/sleepd
+	rm -f /etc/init.d/apm-sleep
+fi
+if [ -e /etc/default/apm-sleep ] && [ ! -e /etc/default/sleepd ]; then
+	sed 's/apm-sleep/sleepd/g' < /etc/default/apm-sleep > /etc/default/sleepd
+	chmod 644 /etc/default/sleepd
+	rm -f /etc/init.d/apm-sleep
+fi

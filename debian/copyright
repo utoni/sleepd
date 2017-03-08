@@ -1,0 +1,19 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: native package
+
+Files: *
+Copyright:
+ © 2000-2009 by Joey Hess <joey@kitenet.net>
+ © 2009 by Jeff Strunk
+ portions © 1996 by Charles Blake
+License: GPL-2+
+
+Files: eventmonitor.*
+Copyright:
+ © 2009 by Jeff Strunk
+ © 2002-2005 by Frank Becker
+License: GPL-2+
+
+License: GPL-2+
+ The full text of the GPL is distributed as GPL in sleepd's source,
+ and is distributed in /usr/share/common-licenses/GPL-2 on Debian systems.

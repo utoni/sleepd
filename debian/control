@@ -1,0 +1,36 @@
+Source: sleepd
+Section: admin
+Priority: optional
+Build-Depends: debhelper (>= 9), libapm-dev, dpkg-dev (>= 1.9.0), libupower-glib-dev, libx11-dev, libxss-dev
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Standards-Version: 3.9.8
+Vcs-Git: https://github.com/lnslbrty/sleepd.git
+Homepage: https://github.com/lnslbrty/sleepd
+
+Package: sleepd
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base
+Recommends: pm-utils, upower
+Architecture: any
+Conflicts: apm-sleep
+Provides: apm-sleep
+Replaces: apm-sleep
+Description: puts an inactive or low battery laptop to sleep
+ This is a daemon to put a laptop to sleep if it is not being used or
+ if the battery is low.
+ .
+ It supports UPower, APM, and ACPI, although external programs must be used
+ to actually put the system to sleep.
+
+Package: sleepd-x11
+Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base, sleepd
+Recommends: pm-utils, upower, libx11-6
+Architecture: any
+Replaces: sleepd
+Description: puts an inactive or low battery laptop to sleep (x11 support)
+ This is a daemon to put a laptop to sleep if it is not being used or
+ if the battery is low.
+ .
+ It supports UPower, APM, and ACPI, although external programs must be used
+ to actually put the system to sleep.
+ .
+ This package supports an additional X11 idle check.

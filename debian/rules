@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+
+export CFLAGS=$(shell dpkg-buildflags --get CFLAGS)
+export CPPFLAGS=$(shell dpkg-buildflags --get CPPFLAGS)
+export LDFLAGS=$(shell dpkg-buildflags --get LDFLAGS)
+
+BUILDDIR_DEFAULT=sleepd-default
+BUILDDIR_X11=sleepd-x11
+
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) BUILDDIR=$(BUILDDIR_DEFAULT) USE_UPOWER=1 all
+	$(MAKE) BUILDDIR=$(BUILDDIR_X11) USE_UPOWER=1 USE_X11=1 all
+
+override_dh_auto_install:
+	$(MAKE) BUILDDIR=$(BUILDDIR_DEFAULT) USE_UPOWER=1 PREFIX=debian/sleepd install
+	$(MAKE) BUILDDIR=$(BUILDDIR_X11) USE_UPOWER=1 USE_X11=1 PREFIX=debian/sleepd-x11 install
+
+override_dh_auto_clean:
+	$(MAKE) BUILDDIR=$(BUILDDIR_DEFAULT) clean
+	$(MAKE) BUILDDIR=$(BUILDDIR_X11) clean
+	rm -rf sleep-default sleep-x11
+
+override_dh_fixperms:
+	dh_fixperms -X sleepctl

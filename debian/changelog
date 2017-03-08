@@ -1,0 +1,608 @@
+sleepd (2.12-1) unstable; urgency=medium
+
+  * X11 image diff calculation
+  * Shm safety checks
+
+ -- Toni Uhlig <matzeton@googlemail.com>  Fri, 16 Jun 2017 15:32:47 +0200
+
+sleepd (2.11-1) unstable; urgency=medium
+
+  * network average rate calculation
+  * better cmdline argument error handling
+
+ -- Toni Uhlig <matzeton@googlemail.com>  Fri, 14 Apr 2017 17:32:38 +0200
+
+sleepd (2.10-1) unstable; urgency=medium
+
+  * QA upload.
+  * bugfixes (coverity issues)
+  * cosmetics
+  * x11 support
+  * posix shared memory
+
+ -- Toni Uhlig <matzeton@googlemail.com>  Wed, 08 Mar 2017 15:58:48 +0100
+
+sleepd (2.09) unstable; urgency=medium
+
+  * Port updates for ACPI and UPower backends from wmbattery.
+
+ -- Andrew Shadura <andrewsh@debian.org>  Sun, 30 Aug 2015 13:35:35 +0200
+
+sleepd (2.08) unstable; urgency=medium
+
+  * Fix battery percentage calculation.
+
+ -- Andrew Shadura <andrewsh@debian.org>  Tue, 21 Oct 2014 06:49:01 +0200
+
+sleepd (2.07) unstable; urgency=medium
+
+  * Fix time calculation for acpi backend.
+  * Fix upower detection.
+
+ -- Andrew Shadura <andrewsh@debian.org>  Fri, 18 Jul 2014 01:39:09 +0200
+
+sleepd (2.06) unstable; urgency=medium
+
+  * Better AC detection.
+  * Support times with upower and acpi.
+  * Use the latest upower API.
+
+ -- Andrew Shadura <andrewsh@debian.org>  Fri, 18 Jul 2014 00:23:57 +0200
+
+sleepd (2.05) unstable; urgency=low
+
+  [ Joey Hess ]
+  * Stop building with flash-in-the-pan HAL. Instead update acpi
+    interface to use /sys/class/power_supply.
+    Note that this needs acpica_version 20011018.
+    Closes: #613169, #678966
+    (Patch developed by Andrew Shadura.)
+  * Orphaned the package.
+
+  [ Andrew Shadura ]
+  * Add UPower support.
+  * Use Debhelper 9, so we can have hardening flags automatically.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 10 May 2013 18:55:49 -0400
+
+sleepd (2.04) unstable; urgency=low
+
+  * Fix getopt for --force-hal option. Closes: #600168
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 20 Oct 2010 13:38:25 -0400
+
+sleepd (2.03) unstable; urgency=low
+
+  * Add --force-hal option. Closes: #597369
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 06 Oct 2010 20:08:54 -0400
+
+sleepd (2.02) unstable; urgency=low
+
+  * Improve eventmonitor thread, to be both more correct and use
+    fewer resources. Thanks, Jeff Strunk
+  * debian/init: Stop in runlevels 0 and 6.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 29 Jun 2010 17:28:03 -0400
+
+sleepd (2.01) unstable; urgency=low
+
+  * Fix init script to not declare hard dependencies on dbus and
+    hal. Closes: #548624
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 27 Sep 2009 21:36:06 -0400
+
+sleepd (2.00) unstable; urgency=low
+
+  * Jeff Strunk contributed support for monitoring /dev/input/event*
+    files, to better support USB keyboards etc. Closes: #147678
+    This is now used by default, in addition to checking interrupts.
+  * Jeff also added support for checking the utmp for idle times,
+    for checking the system's load average, and for monitoring
+    a network device for activity. None done by default.
+  * Use pm-suspend, rather than hibernate --force, to put the system
+    to sleep by default.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 26 May 2009 17:49:55 -0400
+
+sleepd (1.13) unstable; urgency=low
+
+  * Avoid crash by ignoring high irqs greater than 254
+    (assumption is these will not be irqs we care about).
+    Thanks, Jeff Strunk.
+  * Debhelper 7, minimal rules file.
+  * Update copyright file.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 12 May 2009 14:34:49 -0400
+
+sleepd (1.12) unstable; urgency=low
+
+  * Write status back out to control file when resume from manual sleep causes
+    sleeping to be re-enabled, so that sleepctl will see the correct status
+    in this case. Closes: #501708
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 09 Oct 2008 16:22:40 -0400
+
+sleepd (1.11) unstable; urgency=low
+
+  * Tweak acpi/hal backend chosing logic to deal with being started before
+    hal on a system without acpi power info. Closes: #494912
+  * Make init script depend on hal and move init script sequence number to
+    after hal for new installs. Both changes avoid warning message in syslog,
+    but the change above makes it ok if old installs don't follow suite.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 12 Aug 2008 22:58:02 -0400
+
+sleepd (1.10) unstable; urgency=low
+
+  * If sleepd is only being used to sleep on low battery, avoid reading
+    /proc/interrupts at all.
+  * Avoid sleeping if the battery is absent.
+    (This includes simplehal reporting it as absent because hal has died.)
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 17 Jun 2008 19:11:45 -0400
+
+sleepd (1.9) unstable; urgency=low
+
+  * Fix -s. Closes: #469408
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 04 Mar 2008 20:50:03 -0500
+
+sleepd (1.8) unstable; urgency=low
+
+  * Pass KILL to killproc. Closes: #469406
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 04 Mar 2008 20:20:02 -0500
+
+sleepd (1.7) unstable; urgency=low
+
+  * Magic header file reordering to work around the disgusting
+    linux-libc-dev/libc headers conflicts (#435700). Closes: #468070
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 27 Feb 2008 15:08:55 -0500
+
+sleepd (1.6) unstable; urgency=low
+
+  * Use hibernate as the default sleep command when using hal, same as for
+    raw acpi.
+  * Make init script depend on dbus, to avoid sleepd getting confused
+    if dbus is stopped.
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 21 Feb 2008 01:03:51 -0500
+
+sleepd (1.5) unstable; urgency=low
+
+  * Don't spew error messages if optional hal properties are not available.
+  * Add hal to recommends.
+  * Support reconnecting to hal if the connection is closed, as happens
+    if the hal is restarted.
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 20 Feb 2008 22:29:58 -0500
+
+sleepd (1.4) unstable; urgency=low
+
+  * Only register the init script to stop sleepd at runlevel 1. The general
+    process killer will handle killing it cleanly in runlevels 0 and 6.
+  * Run stop script at point 80 instead of 20, to be symmetric with the point
+    it's started.
+  * These changes will only take effect for new installs of the package,
+    to avoid clobbering local changes.
+  * Merge HAL support from wmbattery. Support for the old kernel interfaces
+    (APM, ACPI, etc) is still present, but to use new interfaces such
+    2.6.24's /sys/class/power_adapter, you'll have to have dbus and hal.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 01 Feb 2008 21:36:11 -0500
+
+sleepd (1.3.16) unstable; urgency=low
+
+  * Correct issue with the statically allocated string returned by
+    get_acpi_value that caused it to only look at last full capacity and never
+    really at design capacity. 
+
+ -- Joey Hess <joeyh@debian.org>  Sat, 22 Dec 2007 22:26:50 -0500
+
+sleepd (1.3.15) unstable; urgency=low
+
+  * Guard some divisions against division by zero. I've never seen that
+    happen and can't reproduce it, but see #454766.
+  * Merge acpi change from procmeter3: Limit string length when reading from
+    /proc/.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 07 Dec 2007 14:57:08 -0500
+
+sleepd (1.3.14) unstable; urgency=low
+
+  * Merge another acpi fix from wmbattery.
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 02 Dec 2007 15:50:38 -0500
+
+sleepd (1.3.13) unstable; urgency=low
+
+  * Merge acpi change from wmbattery to deal with batteries that report
+    a last charged and current capacity larger than their design capacity.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 23 Oct 2007 22:11:59 -0400
+
+sleepd (1.3.12) unstable; urgency=low
+
+  * Repository moved from svn to git.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 19 Oct 2007 21:09:22 -0400
+
+sleepd (1.3.11) unstable; urgency=low
+
+  * Fix bug in nostrip support. Closes: #438023
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 15 Aug 2007 13:34:11 -0400
+
+sleepd (1.3.10) unstable; urgency=low
+
+  * LSB init patch from Pere. Closes: #432070
+
+ -- Joey Hess <joeyh@debian.org>  Sat, 07 Jul 2007 20:08:39 -0400
+
+sleepd (1.3.9) unstable; urgency=low
+
+  * Correct off-by-one in acpi.c
+  * Clarify copyright is GPL 2 or higher.
+  * Update urls to new web page.
+  * Remove duplicate recommends line.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 18 May 2007 13:52:25 -0400
+
+sleepd (1.3.8) unstable; urgency=low
+
+  * Minor bug fix to acpi code, don't skip over dotfiles.
+  * Patch from Vincent Bernat adding support for 2.6.21, which changes
+    yet again where the ACPI version number is stored. Closes: #423612
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 24 Jan 2007 22:20:44 -0500
+
+sleepd (1.3.7) unstable; urgency=low
+
+  * Add back missing eval in start_daemon call to fix a quoting problem in
+    PARAMS caused by the switch to lsb scripts. Closes: #387122
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 18 Sep 2006 15:29:16 -0400
+
+sleepd (1.3.6) unstable; urgency=low
+
+  * Use lsb-base logging functions and add lsb init script comment cruft to
+    init script.
+
+ -- Joey Hess <joeyh@debian.org>  Sat, 26 Aug 2006 19:17:46 -0400
+
+sleepd (1.3.5) unstable; urgency=low
+
+  * Patch from Christian Schäfer to add support for using on acpi systems
+    with no batteries. This includes a change to acpi_read in acpi.c.
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 30 Mar 2006 15:09:37 -0500
+
+sleepd (1.3.4) unstable; urgency=low
+
+  * Rebuilt with fixed debhelper to fix exit 0 bug in maint scripts.
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 22 Mar 2006 19:42:48 -0500
+
+sleepd (1.3.3) unstable; urgency=low
+
+  * Fix arch all/any confusion. Closes: #358169
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 21 Mar 2006 14:15:58 -0500
+
+sleepd (1.3.2) unstable; urgency=low
+
+  * Fix missing break in --hibernate-command parsing. Closes: #352770
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 14 Feb 2006 10:47:07 -0500
+
+sleepd (1.3.1) unstable; urgency=low
+
+  * Fix incorrect detection of plug swap events.
+
+ -- Joey Hess <joeyh@debian.org>  Sat, 11 Feb 2006 18:42:35 -0500
+
+sleepd (1.3.0) unstable; urgency=low
+
+  * On acpi systems, default to "hibernate --force" if no sleep command
+    is specified.
+  * No longer go to sleep while on AC power unless --ac-unused is set.
+    Closes: #100087
+  * Recommend hibernate | apmd.
+  * Adjusted some bits like the init script that claimed it was APM specific.
+  * Fix path to control file on sleepctl man page.
+  * Patch based on a patch by Wolfgang Karall to add a --hibernate-command
+    option, which can be used to specify a different command to run when
+    the battery is low vs when sleeping due to inactivity.
+  * Treat AC plug/unplug events as activity. Closes: #348386
+  * Allow specifying a --battery number of 0, which was previously invalid.
+    May be useful on hardware where the acpi battery calculations fall below
+    zero when the battery is very depleted, to make the system sleep at the
+    very last minute. This is experimental.
+  * Merge in changes from procmeter3's version of acpi.c, made by Andrew M.
+    Bishop, that avoid the ugly chdir to /proc/acpi and add a bit of error
+    checking. Now fully synced with procmeter3 3.4d and wmbattery 2.24.
+  * Patch from Stephen Gildea to acpi.c to deal with his laptop, which
+    sometimes reports the battery is discharging when when it's plugged in,
+    so discharge status cannot be used to imply offline status.
+  * Slightly modified patch to still avoid calling on_ac_power() in
+    obvious cases.
+  * Also, logic error fix to the zero batteries implies it must be plugged in
+    code.
+  * Rewrote package description.
+  * Make arch all, since libapm-dev is now available on all arches.
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 30 Jan 2006 17:57:34 -0500
+
+sleepd (1.2.16) unstable; urgency=low
+
+  * Fix XSIisms in preinst.
+  * Current standards version.
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 18 Dec 2005 17:32:51 -0500
+
+sleepd (1.2.15) unstable; urgency=low
+
+  * Fix bashisms in init script.
+  * Reindent init script.
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 27 Nov 2005 23:26:13 -0500
+
+sleepd (1.2.14) unstable; urgency=low
+
+  * Patch from Stephen Gildea to add --and option.
+
+ -- Joey Hess <joeyh@debian.org>  Sat, 22 Oct 2005 16:05:28 -0400
+
+sleepd (1.2.13) unstable; urgency=low
+
+  * Fix init script so restart works if PARAMS includes quotes.
+    Thanks, Luigi Bai. Closes: #311406
+  * Sync acpi code with wmbattery 2.22, to avoid the ugly chdir to /proc/acpi
+    and add a bit of error checking.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 17 Jun 2005 14:01:27 -0400
+
+sleepd (1.2.12) unstable; urgency=low
+
+  * Add ppc64 to arch list. Closes: #301091
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 25 Mar 2005 09:20:49 -0500
+
+sleepd (1.2.11) unstable; urgency=low
+
+  * Run PARAMS through one extra variable expansion in the start-stop-daemon
+    call to allow it to contain multiple settings, and quoted strings such
+    as --sleep-command 'apm -S'
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 23 Jun 2004 20:51:14 -0400
+
+sleepd (1.2.10) unstable; urgency=low
+
+  * Add amd64 to the arch list. Closes: #252537
+
+ -- Joey Hess <joeyh@debian.org>  Fri,  4 Jun 2004 14:47:42 -0300
+
+sleepd (1.2.9) unstable; urgency=low
+
+  * Sync acpi with wmbattery 2.19 for 2.6 kernel support. Closes: #228113
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 19 Jan 2004 12:18:12 -0500
+
+sleepd (1.2.8) unstable; urgency=low
+
+  * Only warn once about no keyboard or mouse irqs, not every update.
+    Closes: #226389, although it still probably has 2.6 kernel issues.
+
+ -- Joey Hess <joeyh@debian.org>  Tue,  6 Jan 2004 20:05:06 -0500
+
+sleepd (1.2.7) unstable; urgency=low
+
+  * Recognise i8042 in /proc/interrupts as a keyboard/mouse. 2.5 kernels
+    report by chipset apparently. Update documentation with more detials.
+    Closes: #193183
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 13 May 2003 17:07:40 -0400
+
+sleepd (1.2.6) unstable; urgency=low
+
+  * Added apm.h with newer apm symbols needed to build sleepd on older
+    systems.
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 16 Sep 2002 13:50:01 -0400
+
+sleepd (1.2.5) unstable; urgency=low
+
+  * sync acpi.c with wmbattery 2.11. Cf #152356
+
+ -- Joey Hess <joeyh@debian.org>  Wed, 10 Jul 2002 16:11:57 -0400
+
+sleepd (1.2.4) unstable; urgency=low
+
+  * Updated acpi.c from wmbattery 2.10. Cf #149715
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 11 Jun 2002 22:55:32 -0400
+
+sleepd (1.2.3) unstable; urgency=low
+
+  * Use debhelper v4.
+  * DEB_BUILD_OPTIONS support.
+
+ -- Joey Hess <joeyh@debian.org>  Sat,  1 Jun 2002 21:36:26 -0400
+
+sleepd (1.2.2) unstable; urgency=low
+
+  * Don't crash if there is a /proc/acpi/ with no status file.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 31 May 2002 21:36:51 -0400
+
+sleepd (1.2.1) unstable; urgency=low
+
+  * Added ${misc:Depends}, for versioned dep on sysvinit for invoke-rc.d.
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 27 May 2002 11:32:37 -0400
+
+sleepd (1.2.0) unstable; urgency=low
+
+  * ACPI support. Have to use software suspend to sleep though (unless you're
+    Linus or something), and so there is some manual tweaking required.
+  * Changed the default check period to 10 seconds, as ACPI is a mite more
+    expensive, and anything under a minute should really be fine.
+  * Support use of -b w/o -U flag.
+  * Support -u 0 to disable idle checking.
+  * Made -s actually work.
+  * debhelper v4
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 24 May 2002 13:28:47 -0400
+
+sleepd (1.1.10) unstable; urgency=low
+
+  * Link with shared apmd library, now that there is one.
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 24 Feb 2002 12:33:57 -0500
+
+sleepd (1.1.9) unstable; urgency=low
+
+  * Renamed this package and the daemon from apm-sleep to sleepd,
+    after observing that apmsleep is a program in the apm package.
+    Anyway, daemons should end in 'd'.
+  * Remove any sleepd.ctl on purge.
+  * The magic in the preinst should transition both conffiles transparently
+    to the admin.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 16 Nov 2001 18:30:39 -0500
+
+apm-sleep (1.1.8) unstable; urgency=low
+
+  * So sparc has apmd now. Closes: #106764
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 26 Jul 2001 22:31:40 -0400
+
+apm-sleep (1.1.7) unstable; urgency=low
+
+  * Limit arches to those that have apmd.
+
+ -- Joey Hess <joeyh@debian.org>  Mon,  2 Jul 2001 22:34:57 -0400
+
+apm-sleep (1.1.6) unstable; urgency=low
+
+  * sleepctl status now says if the daemon is not running
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 22 Jun 2001 22:22:43 -0400
+
+apm-sleep (1.1.5) unstable; urgency=low
+
+  * Fixed two typos that prevented it from ever sleeping except in low
+    power situations.
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 21 Jun 2001 21:30:35 -0400
+
+apm-sleep (1.1.4) unstable; urgency=low
+
+  * Moved the apm-sleep control file to /var/run/, so it is removed on
+    reboots. I want the control data to persist accross daemon restarts,
+    but not reboots.
+
+ -- Joey Hess <joeyh@debian.org>  Fri, 15 Jun 2001 20:37:33 -0400
+
+apm-sleep (1.1.3) unstable; urgency=low
+
+  * Added -b flag to make the system go to sleep if the battery gets low.
+  * Recommends apmd.
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 10 Jun 2001 23:16:56 -0400
+
+apm-sleep (1.1.2) unstable; urgency=low
+
+  * More sane IPC.
+
+ -- Joey Hess <joeyh@debian.org>  Thu,  7 Jun 2001 18:59:30 -0400
+
+apm-sleep (1.1.1) unstable; urgency=low
+
+  * Added a status command to sleepctl.
+
+ -- Joey Hess <joeyh@debian.org>  Wed,  6 Jun 2001 03:27:17 -0400
+
+apm-sleep (1.1.0) unstable; urgency=low
+
+  * Added sleepctl program.
+  * Removed bogus changelog entry that was meant for wmbattery (so _that's_
+    where the mysterious missing changelog entry went!).
+
+ -- Joey Hess <joeyh@debian.org>  Mon,  4 Jun 2001 23:35:06 -0400
+
+apm-sleep (1.0.3) unstable; urgency=low
+
+  * Made the init script ensure that the apm module is loaded by
+    touching /dev/apm_bios. Closes: #95792
+
+ -- Joey Hess <joeyh@debian.org>  Mon, 30 Apr 2001 13:21:14 -0400
+
+apm-sleep (1.0.2) unstable; urgency=low
+
+  * Clean up .o file, Closes: #85608
+
+ -- Joey Hess <joeyh@debian.org>  Sun, 11 Feb 2001 15:31:34 -0800
+
+apm-sleep (1.0.1) unstable; urgency=low
+
+  * Debhelper installs the default file now for me.
+
+ -- Joey Hess <joeyh@debian.org>  Fri,  9 Feb 2001 18:16:17 -0800
+
+apm-sleep (1.0) unstable; urgency=low
+
+  * Added install target to Makefile.
+  * Added local website mantainance install-hook in.
+  * Created a website.
+  * Added another copy of the GPL to my cvs repository. Sigh.
+  * Added INSTALL document.
+  * First public release outside Debian.
+
+ -- Joey Hess <joeyh@debian.org>  Wed,  7 Feb 2001 22:16:54 -0800
+
+apm-sleep (0.5) unstable; urgency=low
+
+  * I discovered that apm-sleep would run before X or gpm were started, and
+    there would be no mouse irq in the list, so it would not autoprobe it.
+    The fix is to make it autoprobe for keyboard and mouse every time
+    through the main loop. I do this with pretty little additional
+    overhead, really. It should also make autoprobing work if a device is
+    connected or enabled or whatever when the daemon is running (I'm
+    thinking USB..) Closes: #80173
+
+ -- Joey Hess <joeyh@debian.org>  Thu, 21 Dec 2000 17:32:05 -0800
+
+apm-sleep (0.4) unstable; urgency=low
+
+  * Patch from Stephen Rothwell <sfr@linuxcare.com.au> to:
+    - add ac-unused option
+    - add some paramater checking
+    - add check-time option
+  * Added a new TODO item to replace the one Steven did.
+  * Build-depends on apmd now.
+  * Modified above patch a bit. -U 0 will disable sleep completly
+    when on wall power, and if -U is not specified, it defaults to
+    using whatever the regular suspend time is.
+
+ -- Joey Hess <joeyh@debian.org>  Tue, 12 Dec 2000 22:59:12 -0800
+
+apm-sleep (0.3) unstable; urgency=low
+
+  * Fixed a fd leak that eventually crashed the program. 
+
+ -- Joey Hess <joeyh@debian.org>  Sat,  9 Dec 2000 01:40:34 -0800
+
+apm-sleep (0.2) unstable; urgency=low
+
+  * Added /etc/default/ file.
+
+ -- Joey Hess <joeyh@debian.org>  Sun,  3 Dec 2000 17:59:08 -0800
+
+apm-sleep (0.1) unstable; urgency=low
+
+  * First release.
+
+ -- Joey Hess <joeyh@debian.org>  Sat,  2 Dec 2000 22:08:01 -0800

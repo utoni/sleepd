@@ -1,5 +1,5 @@
-Master: <img src=https://travis-ci.org/lnslbrty/sleepd.svg?branch=master>
-Debian: <img src=https://travis-ci.org/lnslbrty/sleepd.svg?branch=debian>
+Master: <img src="https://travis-ci.org/lnslbrty/sleepd.svg?branch=master">
+Debian: <img src="https://travis-ci.org/lnslbrty/sleepd.svg?branch=debian">
 <a href="https://scan.coverity.com/projects/lnslbrty-sleepd">
   <img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/11901/badge.svg"/>
 </a>

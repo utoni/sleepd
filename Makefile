@@ -67,10 +67,10 @@ SLEEPD_OBJS_PREFIX=$(addprefix $(BUILDDIR)/sleepd-objs/,$(SLEEPD_OBJS))
 SLEEPD_OBJS_BUILD_PREFIX=$(addprefix $(BUILDDIR)/sleepd-objs/,$(SLEEPD_OBJS_BUILD))
 SLEEPCTL_OBJS_PREFIX=$(addprefix $(BUILDDIR)/sleepctl-objs/,$(SLEEPCTL_OBJS_BUILD))
 
-$(SLEEPD_OBJS_BUILD_PREFIX):
+$(SLEEPD_OBJS_BUILD_PREFIX): $(patsubst %.o,%.c,$(SLEEPD_OBJS_BUILD))
 	$(CC) $(CFLAGS) $(CPPFLAGS) -DIS_MASTER=1 -c -o $@ $(patsubst %.o,%.c,$(notdir $@))
 
-$(SLEEPCTL_OBJS_PREFIX):
+$(SLEEPCTL_OBJS_PREFIX): $(patsubst %.o,%.c,$(SLEEPCTL_OBJS_BUILD))
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $(patsubst %.o,%.c,$(notdir $@))
 
 $(BUILDDIR)/sleepd: $(BUILDDIR)/.pre-build $(SLEEPD_OBJS_PREFIX) $(SLEEPD_OBJS_BUILD_PREFIX)

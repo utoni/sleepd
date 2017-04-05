@@ -35,6 +35,7 @@
 #include "upower.h"
 #endif
 #ifdef X11
+#include <pwd.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/scrnsaver.h>
 #endif
@@ -42,6 +43,7 @@
 #include "sleepd.h"
 #include "ipc.h"
 
+#define MINIMAL_UNUSED 10
 #define ARRAY_SIZE(array) (sizeof((array))/sizeof((array)[0]))
 #define ENV_LEN 1024
 
@@ -153,9 +155,17 @@ void parse_command_line (int argc, char **argv) {
 				break;
 			case 'u':
 				max_unused=atoi(optarg);
+                                if (max_unused < MINIMAL_UNUSED) {
+					fprintf(stderr, "sleepd: bad max unused time %d < %d\n", max_unused, MINIMAL_UNUSED);
+					exit(1);
+				}
 				break;
 			case 'U':
 				ac_max_unused=atoi(optarg);
+				if (ac_max_unused < MINIMAL_UNUSED) {
+					fprintf(stderr, "sleepd: bad ac max unused time %d < %d\n", ac_max_unused, MINIMAL_UNUSED);
+					exit(1);
+				}
 				break;
 			case 'l':
 				max_loadavg=atof(optarg);
@@ -255,6 +265,10 @@ void parse_command_line (int argc, char **argv) {
 			case 'x':
 #ifdef X11
 				xmax_unused = atoi(optarg);
+				if (xmax_unused < MINIMAL_UNUSED) {
+					fprintf(stderr, "sleepd: bad x11 max unused time %d < %d\n", xmax_unused, MINIMAL_UNUSED);
+					exit(1);
+				}
 #else
 				fprintf(stderr, "sleepd: x11 idle check disabled\n");
 #endif
@@ -483,7 +497,7 @@ char *safe_env (const char *name)
 	return ret;
 }
 
-int safe_exec (const char *cmdWithArgs)
+int safe_exec (const char *cmdWithArgs, int total_unused)
 {
 	if (!cmdWithArgs)
 		return -2;
@@ -496,8 +510,12 @@ int safe_exec (const char *cmdWithArgs)
 		const char *prv = cmdWithArgs;
 		const char *cur = NULL;
 
+		char s_unused[11];
+		if (snprintf(&s_unused[0], sizeof(s_unused)/sizeof(s_unused[0]), "%d", total_unused) > 0) {
+			setenv("SLEEPD_UNUSED", &s_unused[0], 1);
+		} else unsetenv("SLEEPD_UNUSED");
 		/* prepend enviroment variables for execve */
-		const char *const envnames[] = { "USER", "DISPLAY", "XAUTHORITY", NULL };
+		const char *const envnames[] = { "SLEEPD_XUSER", "SLEEPD_UNUSED", "DISPLAY", "XAUTHORITY", NULL };
 		const unsigned maxEnv = ARRAY_SIZE(envnames);
 		char *envp[maxEnv];
 		unsigned i = 0, j = 0;
@@ -563,6 +581,7 @@ void main_loop (void) {
 	apm_info ai;
 	double loadavg[1];
 
+	unsetenv("SLEEPD_XUSER");
 	unsetenv("DISPLAY");
 	unsetenv("XAUTHORITY");
 
@@ -585,8 +604,20 @@ void main_loop (void) {
 					strncpy(&xdisplay[0], &id_ptr->xdisplay[0], IPC_XDISPMAX);
 					setenv("XAUTHORITY", &xauthority[0], 1);
 					setenv("DISPLAY", &xdisplay[0], 1);
-					if (debug && !use_x) {
-						printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTHORITY: %s)\n", &xdisplay[0], &xauthority[0]);
+					if (!use_x) {
+						if (debug) {
+							printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTHORITY: %s)\n", &xdisplay[0], &xauthority[0]);
+						}
+						struct stat st;
+						if (stat(&xauthority[0], &st) == 0) {
+							struct passwd *pwd = NULL;
+							if ((pwd = getpwuid(st.st_uid)) != NULL) {
+								setenv("SLEEPD_XUSER", pwd->pw_name, 1);
+								if (debug) {
+									printf("sleepd: xauth owner: %s\n", pwd->pw_name);
+								}
+							}
+						}
 					}
 					if (check_x11() == -1) {
 						UNSET_FLAG(id_ptr, FLG_USEX11);
@@ -598,6 +629,7 @@ void main_loop (void) {
 					memset(&id_ptr->xdisplay[0], '\0', IPC_XDISPMAX);
 					unsetenv("DISPLAY");
 					unsetenv("XAUTHORITY");
+					unsetenv("SLEEPD_XUSER");
 				}
 				use_x = GET_FLAG(id_ptr, FLG_USEX11) != 0;
 #endif
@@ -662,7 +694,7 @@ void main_loop (void) {
 
 		if (sleep_battery && ! require_unused_and_battery) {
 			syslog(LOG_NOTICE, "battery level %d%% is below %d%%; forcing hibernation", ai.battery_percentage, min_batt);
-			if (safe_exec(hibernate_command) != 0)
+			if (safe_exec(hibernate_command, total_unused) != 0)
 				syslog(LOG_ERR, "%s failed", hibernate_command);
 			/* This counts as activity; to prevent double sleeps. */
 			if (debug)
@@ -761,7 +793,7 @@ void main_loop (void) {
 
 			if (sleep_now && ! no_sleep && ! require_unused_and_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds; forcing sleep", total_unused);
-				if (safe_exec(sleep_command) != 0)
+				if (safe_exec(sleep_command, total_unused) != 0)
 					syslog(LOG_ERR, "%s failed", sleep_command);
 				total_unused=0;
 #ifdef X11
@@ -773,7 +805,7 @@ void main_loop (void) {
 			else if (sleep_now && ! no_sleep && sleep_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds and battery level %d%% is below %d%%; forcing hibernaton", 
 				       total_unused, ai.battery_percentage, min_batt);
-				if (safe_exec(hibernate_command) != 0)
+				if (safe_exec(hibernate_command, total_unused) != 0)
 					syslog(LOG_ERR, "%s failed", hibernate_command);
 				total_unused=0;
 #ifdef X11

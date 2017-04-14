@@ -3,7 +3,7 @@
 sleepd \- puts a laptop to sleep during inactivity or on low battery
 .SH SYNOPSIS
 .B sleepd
-.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n]] [-x n] [-g name]"
+.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n] [-m n]] [-x n] [-g name]"
 .SH DESCRIPTION
 .BR sleepd
 is a daemon to force laptops to go to sleep after some period of
@@ -96,6 +96,9 @@ monitoring. Requires \-N.
 .B \-r, \-\-rx\-min
 Set a baseline receive traffic rate in packets per second for network
 monitoring. Requires \-N.
+.TP
+.B \-m, \-\-net\-samples
+Caculate and use the average (tx,rx) rate based on the last n samples. Requires \-N.
 .TP
 .B \-A, \-\-and
 Only go to sleep if all specified conditions are met. For example, only

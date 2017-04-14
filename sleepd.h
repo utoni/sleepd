@@ -9,3 +9,6 @@
 #define RXRATE 25
 #define SHM_NAME "/sleepd-shm"
 #define IPC_MAXTRIES 10
+#define MINIMAL_UNUSED 10
+#define MAX_SAMPLES 100
+#define MAX_UNUSED 10*60

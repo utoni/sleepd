@@ -43,51 +43,57 @@
 #include "sleepd.h"
 #include "ipc.h"
 
-#define MINIMAL_UNUSED 10
+
 #define ARRAY_SIZE(array) (sizeof((array))/sizeof((array)[0]))
 #define ENV_LEN 1024
 
-int irqs[MAX_IRQS]; /* irqs to examine have a value of 1 */
-int autoprobe=1;
-int have_irqs=0;
-int use_events=1;
-int max_unused=10 * 60; /* in seconds */
-int ac_max_unused=0;
+
+static int irqs[MAX_IRQS];		/* irqs to examine have a value of 1 */
+static unsigned char autoprobe = 1;
+static unsigned char have_irqs = 0;
+static unsigned char use_events = 1;
+static int max_unused = MAX_UNUSED;	/* in seconds */
+static int ac_max_unused = 0;
 #ifdef USE_APM
-char *apm_sleep_command="apm -s";
+static char *apm_sleep_command = "apm -s";
 #endif
-char *acpi_sleep_command="pm-suspend";
-char *sleep_command=NULL;
-char *hibernate_command=NULL;
-int daemonize=1;
-int sleep_time = DEFAULT_SLEEP_TIME;
-int no_sleep=0;
-signed int min_batt=-1;
+static char *acpi_sleep_command = "pm-suspend";
+static char *sleep_command = NULL;
+static char *hibernate_command = NULL;
+static unsigned char daemonize = 1;
+static int sleep_time = DEFAULT_SLEEP_TIME;
+static unsigned char no_sleep=0;
+static int min_batt=-1;
 #ifdef HAL
-int use_simplehal = 0;
+static unsigned char use_simplehal = 0;
 #endif
 #ifdef UPOWER
-int use_upower = 0;
+static unsigned char use_upower = 0;
 #endif
-int use_acpi=0;
-int force_hal=0;
-int require_unused_and_battery=0;	/* --and or -A option */
-double max_loadavg = 0;
-int use_utmp=0;
-int use_net=0;
-int min_tx=TXRATE;
-int min_rx=RXRATE;
-char netdevtx[MAX_NET][45];
-char netdevrx[MAX_NET][45];
+static unsigned char use_acpi = 0;
+static unsigned char force_hal = 0;
+static unsigned char require_unused_and_battery = 0;	/* --and or -A option */
+static double max_loadavg = 0;
+static unsigned char use_utmp = 0;
+static unsigned char use_net = 0;
+static int min_tx[MAX_NET]; 
+static int min_rx[MAX_NET];
+static unsigned char net_samples[MAX_NET];		/* net samples for rx/tx per netdev */
+static size_t net_samples_idx = 0;			/* current index of net_samples */
+static unsigned int net_samples_rx[MAX_NET][MAX_SAMPLES]; /* save rx samples[net_samples_idx] */
+static unsigned int net_samples_tx[MAX_NET][MAX_SAMPLES]; /* save tx samples[net_samples_idx] */
+static char netdevtx[MAX_NET][45];
+static char netdevrx[MAX_NET][45];
 #ifdef X11
-int use_x = 0;
-int xmax_unused = 0;
+static unsigned char use_x = 0;
+static int xmax_unused = 0;
 #endif
-gid_t shm_grp = 0;
-int debug=0;
+static gid_t shm_grp = 0;
+static unsigned char debug = 0;
 
-void usage () {
-	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n]] [-x n] [-g name]\n");
+
+void usage (char *arg0) {
+	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n] -s n] [-x n] [-g name]\n\n");
 }
 
 void parse_command_line (int argc, char **argv) {
@@ -113,69 +119,77 @@ void parse_command_line (int argc, char **argv) {
 		{"netdev", 2, NULL, 'N'},
 		{"rx-min", 1, NULL, 'r'},
 		{"tx-min", 1, NULL, 't'},
+                {"net-samples", 1, NULL, 'm'},
 		{"xunused", 1, NULL, 'x'},
 		{"group", 1, NULL, 'g'},
 		{"force-hal", 0, NULL, 'H'},
 		{"force-upower", 0, NULL, 1},
 		{0, 0, 0, 0}
 	};
-	int force_autoprobe=0;
-	int noirq=0;
+	unsigned char force_autoprobe = 0;
+	unsigned char noirq = 0;
 	int i;
-	int c=0;
-	int event=0;
-	int netcount=0;
+	int c = 0;
+	int event = 0;
+	int netcount = 0;
 	int result;
 	char tmpdev[9];
 	char tx_statfile[44];
 	char rx_statfile[44];
+	unsigned char tx_set[MAX_NET];
+	unsigned char rx_set[MAX_NET];
+	unsigned char sm_set[MAX_NET];
+
+	memset(&tx_set[0], '\0', MAX_NET*sizeof(char));
+	memset(&rx_set[0], '\0', MAX_NET*sizeof(char));
+	memset(&sm_set[0], '\0', MAX_NET*sizeof(char));
 
 	while (c != -1) {
-		c=getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN:r:t:x:g:H", long_options, NULL);
+		c = getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN:r:t:x:m:g:H", long_options, NULL);
 		switch (c) {
 			case 's':
 				if (sleep_command) {
 					fprintf(stderr, "sleepd: multiple -s found\n");
 					exit(1);
 				}
-				sleep_command=strdup(optarg);
+				sleep_command = strdup(optarg);
 				break;
 			case 'd':
 				if (hibernate_command) {
 					fprintf(stderr, "sleepd: multiple -d found\n");
 					exit(1);
 				}
-				hibernate_command=strdup(optarg);
+				hibernate_command = strdup(optarg);
 				break;
 			case 'n':
-				daemonize=0;
+				daemonize = 0;
 				break;
 			case 'v':
-				debug=1;
+				debug = 1;
 				break;
 			case 'u':
-				max_unused=atoi(optarg);
+				max_unused = atoi(optarg);
                                 if (max_unused < MINIMAL_UNUSED) {
 					fprintf(stderr, "sleepd: bad max unused time %d < %d\n", max_unused, MINIMAL_UNUSED);
 					exit(1);
 				}
 				break;
 			case 'U':
-				ac_max_unused=atoi(optarg);
+				ac_max_unused = atoi(optarg);
 				if (ac_max_unused < MINIMAL_UNUSED) {
 					fprintf(stderr, "sleepd: bad ac max unused time %d < %d\n", ac_max_unused, MINIMAL_UNUSED);
 					exit(1);
 				}
 				break;
 			case 'l':
-				max_loadavg=atof(optarg);
+				max_loadavg = atof(optarg);
 				break;
 			case 'w':
-				use_utmp=1;
+				use_utmp = 1;
 				break;
 			case 1:
 			case 'H':
-				force_hal=1;
+				force_hal = 1;
 				break;
 			case 'i':
 				i = atoi(optarg);
@@ -183,16 +197,16 @@ void parse_command_line (int argc, char **argv) {
 					fprintf(stderr, "sleepd: bad irq number %d\n", i);
 					exit(1);
 				}
-				irqs[atoi(optarg)]=1;
-				autoprobe=0;
-				have_irqs=1;
+				irqs[atoi(optarg)] = 1;
+				autoprobe = 0;
+				have_irqs = 1;
 				break;
 			case 'e':
 				result = access(optarg, R_OK);
 				switch(result) {
 					case 0:
 						strncpy(eventData.events[event], optarg,127);
-						use_events=1;
+						use_events = 1;
 						event++;
 						break;
 					case ELOOP:
@@ -208,33 +222,37 @@ void parse_command_line (int argc, char **argv) {
 				}
 				break;
 			case 'E':
-				use_events=0;
+				use_events = 0;
 				break;
 			case 'a':
-				force_autoprobe=1;
+				force_autoprobe = 1;
 				break;
 			case 'I':
-				noirq=1;
+				noirq = 1;
 				break;
 			case 'h':
-				usage();
+				usage(argv[0]);
 				exit(0);
 				break;
 			case 'c':
-				sleep_time=atoi(optarg);
+				sleep_time = atoi(optarg);
 				if (sleep_time <= 0) {
 					fprintf(stderr, "sleepd: bad sleep time %d\n", sleep_time);
 					exit(1);
 				}
 				break;
 			case 'b':
-				min_batt=atoi(optarg);
+				min_batt = atoi(optarg);
 				if (min_batt < 0) {
 					fprintf(stderr, "sleepd: bad minimumn battery percentage %d\n", min_batt);
 					exit(1);
 				}
 				break;
 			case 'N':
+				if (netcount >= MAX_NET) {
+					fprintf(stderr, "sleepd: only %d net devices allowed (check '-N' args)\n", MAX_NET);
+					exit(1);
+				}
 				memset(&tmpdev[0], '\0', ARRAY_SIZE(tmpdev));
 				strncpy(tmpdev, optarg, 8);
 				snprintf(tx_statfile, ARRAY_SIZE(tx_statfile), TXFILE, tmpdev);
@@ -245,22 +263,46 @@ void parse_command_line (int argc, char **argv) {
 					memset(&netdevrx[netcount][0], '\0', ARRAY_SIZE(netdevrx[netcount]));
 					strncpy(netdevtx[netcount], tx_statfile, 44);
 					strncpy(netdevrx[netcount], rx_statfile, 44);
-					use_net=1;
+					use_net = 1;
 					netcount++;
-				}
-				else {
+				} else {
 					fprintf(stderr, "sleepd: %s not found in sysfs\n", tmpdev);
 					exit(1);
 				}
 				break;
 			case 't':
-				min_tx = atoi(optarg);
+				if (netcount > 0 && tx_set[netcount-1] == 0) {
+					min_tx[netcount-1] = atoi(optarg);
+					tx_set[netcount-1] = 1;
+				} else {
+					fprintf(stderr, "sleepd: you can use '-%c' only ONCE and AFTER the corresponding '-N'\n", 't');
+					exit(1);
+				}
 				break;
 			case 'r':
-				min_rx = atoi(optarg);
+				if (netcount > 0 && rx_set[netcount-1] == 0) {
+					min_rx[netcount-1] = atoi(optarg);
+					rx_set[netcount-1] = 1;
+				} else {
+					fprintf(stderr, "sleepd: you can use '-%c' only ONCE and AFTER the corresponding '-N'\n", 'r');
+					exit(1);
+				}
+				break;
+			case 'm':
+				if (netcount > 0 && sm_set[netcount-1] == 0) {
+					net_samples[netcount-1] = atoi(optarg);
+					if (net_samples[netcount-1] <= 1 || net_samples[netcount-1] > MAX_SAMPLES) {
+						fprintf(stderr, "sleepd: net samples should be between 2 and %d\n", MAX_SAMPLES);
+						exit(1);
+					}
+					sm_set[netcount-1] = 1;
+				} else {
+					fprintf(stderr, "sleepd: you can use '-%c' only ONCE and AFTER the corresponding '-N'\n", 'm');
+					exit(1);
+				}
 				break;
 			case 'A':
-				require_unused_and_battery=1;
+				require_unused_and_battery = 1;
 				break;
 			case 'x':
 #ifdef X11
@@ -288,23 +330,26 @@ void parse_command_line (int argc, char **argv) {
 		}
 	}
 	if (optind < argc) {
-		usage();
+		usage(argv[0]);
 		exit(1);
 	}
 
-	if (use_events)
+	if (use_events) {
 		strncpy(eventData.events[event], "", 1);
+	}
 
 	if (use_net) {
 		strncpy(netdevtx[netcount], "", 1);
 		strncpy(netdevrx[netcount], "", 1);
 	}
 
-	if (noirq)
-		autoprobe=0;
+	if (noirq) {
+		autoprobe = 0;
+	}
 
-	if (force_autoprobe)
-		autoprobe=1;
+	if (force_autoprobe) {
+		autoprobe = 1;
+	}
 }
 
 /**** stat the device file to get an idle time */
@@ -316,10 +361,10 @@ int idletime (const char *tty) {
 	return (int)(time(NULL) - sbuf.st_atime);
 }
 
-int check_irqs (int activity, int autoprobe) {
+unsigned char check_irqs (unsigned char activity, unsigned char autoprobe) {
 	static long irq_count[MAX_IRQS]; /* holds previous counters of the irqs */
-	static int probed=0;
-	static int no_dev_warned=0;
+	static int probed = 0;
+	static int no_dev_warned = 0;
 
 	FILE *f;
 	char line[64];
@@ -332,19 +377,19 @@ int check_irqs (int activity, int autoprobe) {
 	}
 	while (fgets(line,sizeof(line),f)) {
 		long v;
-		int do_this_one=0;
+		int do_this_one = 0;
 		if (autoprobe) {
 			/* Lowercase line. */
-			for(i=0;line[i];i++)
-				line[i]=tolower(line[i]);
+			for(i = 0; line[i]; i++)
+				line[i] = tolower(line[i]);
 			/* See if it is a keyboard or mouse. */
 			if (strstr(line, "mouse") != NULL ||
 			    strstr(line, "keyboard") != NULL ||
 			    /* 2.5 kernels report by chipset,
 			     * this is a ps/2 keyboard/mouse. */
 			    strstr(line, "i8042") != NULL) {
-				do_this_one=1;
-				probed=1;
+				do_this_one = 1;
+				probed = 1;
 			}
 		}
 		if (sscanf(line,"%d: %ld",&i, &v) == 2 &&
@@ -352,7 +397,7 @@ int check_irqs (int activity, int autoprobe) {
 		    (do_this_one || irqs[i]) && irq_count[i] != v) {
 			if (debug)
 				printf("sleepd: activity: irq %d\n", i);
-			activity=1;
+			activity = 1;
 			irq_count[i] = v;
 		}
 	}
@@ -360,7 +405,7 @@ int check_irqs (int activity, int autoprobe) {
 	
 	if (autoprobe && ! probed) {
 		if (! no_dev_warned) {
-			no_dev_warned=1;
+			no_dev_warned = 1;
 			syslog(LOG_WARNING, "no keyboard or mouse irqs autoprobed");
 		}
 	}
@@ -368,16 +413,16 @@ int check_irqs (int activity, int autoprobe) {
 	return activity;
 }
 
-int check_net (int activity) {
+unsigned char check_net (unsigned char activity) {
 	static long tx_count[MAX_NET]; /* holds previous counters of tx packets */
 	static long rx_count[MAX_NET]; /* holds previous counters of rx packets */
 
-	long tx,rx;
+	long tx, rx;
 	int i;
 	for (i=0; i < MAX_NET; i++) {
 		if (strncmp(netdevtx[i], "", 1) != 0) {
 			char line[64];
-			FILE *f=fopen(netdevtx[i], "r");
+			FILE *f = fopen(netdevtx[i], "r");
 			if (fgets(line,sizeof(line),f)) {
 				tx = strtol(line, (char **) NULL, 10);
 			}
@@ -386,7 +431,7 @@ int check_net (int activity) {
 				exit(1);
 			}
 			fclose(f);
-			f=fopen(netdevrx[i], "r");
+			f = fopen(netdevrx[i], "r");
 			if (fgets(line,sizeof(line),f)) {
 				rx = strtol(line, (char **) NULL, 10);
 			}
@@ -395,18 +440,42 @@ int check_net (int activity) {
 				exit(1);
 			}
 			fclose(f);
-			if (((tx - tx_count[i])/sleep_time > min_tx) ||
-			    ((rx - rx_count[i])/sleep_time > min_rx)) {
+
+			if (net_samples[i] > 1) {
+				net_samples_tx[i][net_samples_idx] = (tx - tx_count[i])/sleep_time;
+				net_samples_rx[i][net_samples_idx] = (rx - rx_count[i])/sleep_time;
+				if (++net_samples_idx >= net_samples[i]) {
+					net_samples_idx = 0;
+				}
+
+				long sum_tx = 0;
+				long sum_rx = 0;
+				size_t j = 0;
+				for (j = 0; j < net_samples[i]; ++j) {
+					sum_tx += net_samples_tx[i][j];
+					sum_rx += net_samples_rx[i][j];
+				}
+				long avg_tx = sum_tx/net_samples[i];
+				long avg_rx = sum_rx/net_samples[i];
+
+				if ((avg_tx > min_tx[i]) || avg_rx > min_rx[i]) {
+					if (debug) {
+						printf("sleepd: activity: avg network rx/tx rate calculation (%d samples): txrate: %ld rxrate: %ld\n", net_samples[i], avg_tx, avg_rx);
+					}
+					activity = 1;
+				}
+			} else
+			if (((tx - tx_count[i])/sleep_time > min_tx[i]) ||
+			    ((rx - rx_count[i])/sleep_time > min_rx[i])) {
 				if (debug) {
 					printf("sleepd: activity: network txrate: %ld rxrate: %ld\n",
 						(tx - tx_count[i])/sleep_time, (rx - rx_count[i])/sleep_time);
 				}
-				activity=1;
+				activity = 1;
 			}
-			tx_count[i]=tx;
-			rx_count[i]=rx;
-		}
-		else {
+			tx_count[i] = tx;
+			rx_count[i] = rx;
+		} else {
 			break;
 		}
 	}
@@ -419,10 +488,10 @@ int check_utmp (int total_unused) {
 	 * total_unused and the shortest utmp idle time. */
 	typedef struct utmp utmp_t;
 	utmp_t *u;
-	int min_idle=2*max_unused;
+	int min_idle = 2 * max_unused;
 	utmpname(UTMP_FILE);
 	setutent();
-	while ((u=getutent())) {
+	while ((u = getutent())) {
 		if (u->ut_type == USER_PROCESS) {
 			/* get tty. From w.c in procps by Charles Blake. */
 			char tty[5 + sizeof u->ut_line + 1] = "/dev/";
@@ -430,14 +499,14 @@ int check_utmp (int total_unused) {
 			for (i=0; i < sizeof u->ut_line; i++) {
 				/* clean up tty if garbled */
 				if (isalnum(u->ut_line[i]) ||
-				    (u->ut_line[i]=='/')) {
+				    (u->ut_line[i] == '/')) {
 					tty[i+5] = u->ut_line[i];
 				}
 				else {
 					tty[i+5] = '\0';
 				}
 			}
-			int cur_idle=idletime(tty);
+			int cur_idle = idletime(tty);
 			min_idle = (cur_idle < min_idle) ? cur_idle : min_idle;
 		}
 	}
@@ -569,21 +638,24 @@ int safe_exec (const char *cmdWithArgs, int total_unused)
 }
 
 void main_loop (void) {
-	int activity=0, sleep_now=0, total_unused=0;
+	unsigned char activity = 0, sleep_now = 0;
+        int total_unused = 0;
 #ifdef X11
 	char xauthority[IPC_PATHMAX+1];
 	char xdisplay[IPC_XDISPMAX+1];
-	int x_unused=0;
+	int x_unused = 0;
 #endif
-	int sleep_battery=0;
-	int prev_ac_line_status=-1;
-	time_t nowtime, oldtime=0;
+	int sleep_battery = 0;
+	int prev_ac_line_status = -1;
+	time_t nowtime, oldtime = 0;
 	apm_info ai;
 	double loadavg[1];
 
 	unsetenv("SLEEPD_XUSER");
 	unsetenv("DISPLAY");
 	unsetenv("XAUTHORITY");
+
+	memset(&ai, '\0', sizeof(ai));
 
 	if (use_events) {
 		pthread_t emthread;
@@ -595,7 +667,7 @@ void main_loop (void) {
 			struct ipc_data *id_ptr = NULL;
 			ipc_getshmptr(&id_ptr);
 			if (id_ptr != NULL) {
-				no_sleep = GET_FLAG(id_ptr, FLG_ENABLED) == 0;
+				no_sleep = (GET_FLAG(id_ptr, FLG_ENABLED) == 0);
 #ifdef X11
 				if (GET_FLAG(id_ptr, FLG_USEX11) != 0) {
 					memset(&xauthority[0], '\0', ARRAY_SIZE(xauthority));
@@ -699,18 +771,18 @@ void main_loop (void) {
 			/* This counts as activity; to prevent double sleeps. */
 			if (debug)
 				printf("sleepd: activity: just woke up\n");
-			activity=1;
-			oldtime=0;
-			sleep_battery=0;
+			activity = 1;
+			oldtime = 0;
+			sleep_battery = 0;
 		}
 
 		if ((ai.ac_line_status != prev_ac_line_status) && (prev_ac_line_status != -1)) {
 			/* AC plug/unplug counts as activity. */
 			if (debug)
 				printf("sleepd: activity: AC status change\n");
-			activity=1;
+			activity = 1;
 		}
-		prev_ac_line_status=ai.ac_line_status;
+		prev_ac_line_status = ai.ac_line_status;
 
 		/* Rest is only needed if sleeping on inactivity. */
 		if (! max_unused && ! ac_max_unused) {
@@ -719,11 +791,11 @@ void main_loop (void) {
 		}
 
 		if (autoprobe || have_irqs) {
-			activity=check_irqs(activity, autoprobe);
+			activity = check_irqs(activity, autoprobe);
 		}
 
 		if (use_net) {
-			activity=check_net(activity);
+			activity = check_net(activity);
 		}
 
 		if ((max_loadavg != 0) &&
@@ -732,11 +804,11 @@ void main_loop (void) {
 			/* If the load average is too high */
 			if (debug)
 				printf("sleepd: activity: load average %f\n", loadavg[0]);
-			activity=1;
+			activity = 1;
 		}
 
 		if (use_utmp == 1) {
-			total_unused=check_utmp(total_unused);
+			total_unused = check_utmp(total_unused);
 		}
 
 		if (ipc_lock() == 0) {
@@ -756,7 +828,7 @@ void main_loop (void) {
 			if (eventData.emactivity == 1) {
 				if (debug)
 					printf("sleepd: activity: keyboard/mouse events\n");
-				activity=1;
+				activity = 1;
 			}
 			pthread_mutex_unlock(&activity_mutex);
 		}
@@ -764,13 +836,13 @@ void main_loop (void) {
 #ifdef X11
 		if (use_x && ! no_sleep) {
 			if (xmax_unused > 0) {
-				sleep_now = x_unused >= xmax_unused;
+				sleep_now = (x_unused >= xmax_unused);
 			} else if (max_unused > 0) {
-				sleep_now = x_unused >= max_unused;
+				sleep_now = (x_unused >= max_unused);
 			}
 			if (sleep_now) {
 				syslog(LOG_NOTICE, "x11 inactive");
-				activity=0;
+				activity = 0;
 				total_unused = x_unused;
 			}
 		}
@@ -784,36 +856,38 @@ void main_loop (void) {
 			if (! sleep_now && ai.ac_line_status == 1) {
 				/* On wall power. */
 				if (ac_max_unused > 0) {
-					sleep_now = total_unused >= ac_max_unused;
+					sleep_now = (total_unused >= ac_max_unused);
 				}
 			}
 			else if (! sleep_now && max_unused > 0) {
-				sleep_now = total_unused >= max_unused;
+				sleep_now = (total_unused >= max_unused);
 			}
 
 			if (sleep_now && ! no_sleep && ! require_unused_and_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds; forcing sleep", total_unused);
-				if (safe_exec(sleep_command, total_unused) != 0)
+				if (safe_exec(sleep_command, total_unused) != 0) {
 					syslog(LOG_ERR, "%s failed", sleep_command);
-				total_unused=0;
+				}
+				total_unused = 0;
 #ifdef X11
-				x_unused=0;
+				x_unused = 0;
 #endif
-				oldtime=0;
-				sleep_now=0;
+				oldtime = 0;
+				sleep_now = 0;
 			}
 			else if (sleep_now && ! no_sleep && sleep_battery) {
 				syslog(LOG_NOTICE, "system inactive for %ds and battery level %d%% is below %d%%; forcing hibernaton", 
 				       total_unused, ai.battery_percentage, min_batt);
-				if (safe_exec(hibernate_command, total_unused) != 0)
+				if (safe_exec(hibernate_command, total_unused) != 0) {
 					syslog(LOG_ERR, "%s failed", hibernate_command);
-				total_unused=0;
+				}
+				total_unused = 0;
 #ifdef X11
-				x_unused=0;
+				x_unused = 0;
 #endif
-				oldtime=0;
-				sleep_now=0;
-				sleep_battery=0;
+				oldtime = 0;
+				sleep_now = 0;
+				sleep_battery = 0;
 			}
 		}
 
@@ -823,22 +897,23 @@ void main_loop (void) {
 		 * was probably suspended, or this program was, (or the 
 		 * kernel is thrashing :-), so clear idle counter.
 		 */
-		nowtime=time(NULL);
+		nowtime = time(NULL);
 		/* The 1 is a necessary fudge factor. */
-		if (oldtime && nowtime - sleep_time > oldtime + 1) {
-			no_sleep=0; /* reset, since they must have put it to sleep */
+		if (oldtime && (nowtime - sleep_time) > (oldtime + 1)) {
+			no_sleep = 0; /* reset, since they must have put it to sleep */
 			syslog(LOG_NOTICE,
 					"%i sec sleep; resetting timer",
 					(int)(nowtime - oldtime));
-			total_unused=0;
+			total_unused = 0;
 		}
-		oldtime=nowtime;
+		oldtime = nowtime;
 	}
 }
 
 void cleanup (int signum) {
-	if (daemonize)
+	if (daemonize) {
 		unlink(PID_FILE);
+	}
 	ipc_close_master();
 	exit(0);
 }
@@ -846,14 +921,26 @@ void cleanup (int signum) {
 int main (int argc, char **argv) {
 	FILE *f;
 
+	memset(&irqs[0], '\0', MAX_IRQS*sizeof(int));
+	size_t i;
+	for (i = 0; i < MAX_NET; ++i) {
+		min_tx[i] = TXRATE;
+		min_rx[i] = RXRATE;
+		net_samples[i] = 1;
+		memset(&netdevtx[i][0], '\0', ARRAY_SIZE(netdevtx[i]));
+		memset(&netdevrx[i][0], '\0', ARRAY_SIZE(netdevrx[i]));
+	}
+	memset(&net_samples_rx[0], '\0', MAX_NET*MAX_SAMPLES*sizeof(int));
+	memset(&net_samples_tx[0], '\0', MAX_NET*MAX_SAMPLES*sizeof(int));
+
 	parse_command_line(argc, argv);
-	
+
 	/* Log to the console if not daemonizing. */
 	openlog("sleepd", LOG_PID | (daemonize ? 0 : LOG_PERROR), LOG_DAEMON);
-	
+
 	/* Set up a signal handler for SIGTERM/SIGINT to clean up things. */
 	signal(SIGTERM, cleanup);
-	if (!daemonize)
+	if (! daemonize)
 		signal(SIGINT, cleanup);
 
 	if (! use_events) {
@@ -868,7 +955,7 @@ int main (int argc, char **argv) {
 			perror("daemon");
 			exit(1);
 		}
-		if ((f=fopen(PID_FILE, "w")) == NULL) {
+		if ((f = fopen(PID_FILE, "w")) == NULL) {
 			syslog(LOG_ERR, "unable to write %s", PID_FILE);
 			exit(1);
 		}
@@ -886,7 +973,7 @@ int main (int argc, char **argv) {
 #endif
 	    ) {
 		if (! sleep_command)
-			sleep_command=acpi_sleep_command;
+			sleep_command = acpi_sleep_command;
 
 		/* Chosing between hal and acpi backends is tricky,
 		 * because acpi may report no batteries due to the battery
@@ -902,15 +989,15 @@ int main (int argc, char **argv) {
 		 */
 		if (! force_hal && acpi_supported() &&
 		    (acpi_ac_count > 0 || acpi_batt_count > 0)) {
-			use_acpi=1;
+			use_acpi = 1;
 		}
 #if defined(HAL)
 		else if (simplehal_supported()) {
-			use_simplehal=1;
+			use_simplehal = 1;
 		}
 		else {
 			syslog(LOG_NOTICE, "failed to connect to hal on startup, but will try to use it anyway");
-			use_simplehal=1;
+			use_simplehal = 1;
 		}
 #elif defined(UPOWER)
 		else if (upower_supported()) {
@@ -928,13 +1015,13 @@ int main (int argc, char **argv) {
 	}
 	if (! sleep_command) {
 #if defined(USE_APM)
-		sleep_command=apm_sleep_command;
+		sleep_command = apm_sleep_command;
 #else
-		sleep_command=acpi_sleep_command;
+		sleep_command = acpi_sleep_command;
 #endif
 	}
 	if (! hibernate_command) {
-		hibernate_command=sleep_command;
+		hibernate_command = sleep_command;
 	}
 
 	if (ipc_init_master(shm_grp) != 0) {
@@ -942,6 +1029,6 @@ int main (int argc, char **argv) {
 		exit(1);
         }
 	main_loop();
-	
+
 	return(0); // never reached
 }

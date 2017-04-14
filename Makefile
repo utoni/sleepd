@@ -1,4 +1,4 @@
-CFLAGS     ?= -O2 -g -Wall -Wunused
+CFLAGS     ?= -O2 -g -Wall -Wextra -Wunused -Wno-unused-parameter
 CFLAGS     += -pthread
 BUILDDIR   ?= .
 BINS        = $(BUILDDIR)/sleepd $(BUILDDIR)/sleepctl

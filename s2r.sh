@@ -4,8 +4,13 @@
 #exec 1>>/tmp/s2r.log
 #exec 2>>/tmp/s2r.log
 
-export PATH="${PATH}:/usr/local/bin"
 export NOTIF_TIME=20
+
+if [ $(id -u) -ne 0 ]; then
+	echo "$0: This script should be run as root!" >&2
+	sudo $0
+	exit 1
+fi
 
 if [ $# -eq 1 -a x"$1" = x"force" ]; then
 	SLEEP_IMMED=1
@@ -14,8 +19,14 @@ else
 fi
 
 if [ -z "${SLEEPD_XUSER}" ]; then
-	SLEEPD_XUSER="${USER}"
+	if [ -z "${SUDO_USER}" ]; then
+		SLEEPD_XUSER="${USER}"
+	else
+		SLEEPD_XUSER="${SUDO_USER}"
+	fi
 fi
+
+echo "$0: Running commands as ${SLEEPD_XUSER}" >&2
 
 # user gets additional time before sleep if xidle avail
 if [ ${SLEEP_IMMED} -eq 0 -a x"$(command -v xidle)" != x ]; then
@@ -34,7 +45,8 @@ if [ ${SLEEP_IMMED} -eq 0 -a x"$(command -v xidle)" != x ]; then
 fi
 
 # lock screen
-su -m ${SLEEPD_XUSER} xtrlock &
+#xtrlock &
+start-stop-daemon --start -b -c ${SLEEPD_XUSER} --exec  /usr/bin/xtrlock
 
 SLEEP_DATE=$(date '+%d.%m.%y - %H:%M:%S')
 

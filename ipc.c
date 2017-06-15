@@ -83,7 +83,14 @@ int ipc_init_slave (void) {
 		shm_fd = shm_open(SHM_NAME, O_RDWR, IPC_MODE);
 	}
 	if (shm_fd >= 0) { 
-		size_t siz = sizeof(struct ipc_data);
+		ssize_t siz = sizeof(struct ipc_data);
+		/* check shm segment size */
+		struct stat st;
+		if (fstat(shm_fd, &st) != 0)
+			return -1;
+		if (st.st_size != siz)
+			return -2;
+
 		if ((ip = (struct ipc_data *)mmap(NULL, siz, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0)) == MAP_FAILED)
 			return -1;
 		close(shm_fd);
@@ -95,7 +102,7 @@ int ipc_init_slave (void) {
 		}
 		/* avoid a possible race condition (see ipc_init_master above) */
 		if (GET_FLAG(ip, FLG_RUNNING) == 0) {
-			return -1;
+			return -3;
 		}
 		pthread_mutex_lock(&ip->shm_mtx);
 		pthread_mutex_unlock(&ip->shm_mtx);

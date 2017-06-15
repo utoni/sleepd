@@ -35,9 +35,9 @@
 #include "upower.h"
 #endif
 #ifdef X11
+#include <X11/Xutil.h>
 #include <pwd.h>
-#include <X11/Xlib.h>
-#include <X11/extensions/scrnsaver.h>
+#include "xutils.h"
 #endif
 #include "eventmonitor.h"
 #include "sleepd.h"
@@ -52,6 +52,7 @@ static int irqs[MAX_IRQS];		/* irqs to examine have a value of 1 */
 static unsigned char autoprobe = 1;
 static unsigned char have_irqs = 0;
 static unsigned char use_events = 1;
+static pthread_t emthread;
 static int max_unused = MAX_UNUSED;	/* in seconds */
 static int ac_max_unused = 0;
 #ifdef USE_APM
@@ -86,14 +87,16 @@ static char netdevtx[MAX_NET][45];
 static char netdevrx[MAX_NET][45];
 #ifdef X11
 static unsigned char use_x = 0;
+static unsigned int use_xdiff = 0;
 static int xmax_unused = 0;
+static int xdiff_max_unused = 0;
 #endif
 static gid_t shm_grp = 0;
 static unsigned char debug = 0;
 
 
 void usage (char *arg0) {
-	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n] -s n] [-x n] [-g name]\n\n");
+	fprintf(stderr, "Usage: sleepd [-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [dev] [-t n] [-r n] -s n] [-x n] [-X] [-g name] [--xdiff-unused n] [-V] [-h]\n\n");
 }
 
 void parse_command_line (int argc, char **argv) {
@@ -121,9 +124,13 @@ void parse_command_line (int argc, char **argv) {
 		{"tx-min", 1, NULL, 't'},
                 {"net-samples", 1, NULL, 'm'},
 		{"xunused", 1, NULL, 'x'},
+		{"xdiff", 1, NULL, 'X'},
+		{"xdiff-unused", 1, NULL, 2},
 		{"group", 1, NULL, 'g'},
 		{"force-hal", 0, NULL, 'H'},
 		{"force-upower", 0, NULL, 1},
+		{"version", 0, NULL, 'V'},
+		{"help", 0, NULL, 'h'},
 		{0, 0, 0, 0}
 	};
 	unsigned char force_autoprobe = 0;
@@ -145,7 +152,7 @@ void parse_command_line (int argc, char **argv) {
 	memset(&sm_set[0], '\0', MAX_NET*sizeof(char));
 
 	while (c != -1) {
-		c = getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:hac:b:AN:r:t:x:m:g:H", long_options, NULL);
+		c = getopt_long(argc,argv, "s:d:nvu:U:l:wIi:Ee:Vhac:b:AN:r:t:x:X:m:g:H", long_options, NULL);
 		switch (c) {
 			case 's':
 				if (sleep_command) {
@@ -230,9 +237,18 @@ void parse_command_line (int argc, char **argv) {
 			case 'I':
 				noirq = 1;
 				break;
+			case 'V':
+				printf("%s %d.%d\n"
+					"(C) 2000-2008 Joey Hess <joeyh@kitenet.net>\n"
+					"(C) 2017 Toni Uhlig <matzeton@googlemail.com>\n\n"
+					"This is free software.  You may redistribute copies of it under the terms of\n"
+					"the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.\n"
+					"There is NO WARRANTY, to the extent permitted by law.\n\n"
+					"Please send me all your bugs: %s\n\n", PKG_NAME, PKG_VERSION_MAJOR, PKG_VERSION_MINOR, PKG_MAIL);
+				exit(0);
 			case 'h':
 				usage(argv[0]);
-				exit(0);
+				exit(1);
 				break;
 			case 'c':
 				sleep_time = atoi(optarg);
@@ -315,6 +331,20 @@ void parse_command_line (int argc, char **argv) {
 				fprintf(stderr, "sleepd: x11 idle check disabled\n");
 #endif
 				break;
+			case 'X':
+#ifdef X11
+				use_xdiff = (unsigned int)atoi(optarg);
+#else
+				fprintf(stderr, "sleepd: x11 diff check disabled\n");
+#endif
+				break;
+			case 2:
+#ifdef X11
+				xdiff_max_unused = atoi(optarg);
+#else
+				fprintf(stderr, "sleepd: x11 diff check disabled\n");
+#endif
+				break;
 			case 'g':
 				{
 					struct group *grp = getgrnam(optarg);
@@ -349,6 +379,10 @@ void parse_command_line (int argc, char **argv) {
 
 	if (force_autoprobe) {
 		autoprobe = 1;
+	}
+
+	if (xdiff_max_unused <= 0) {
+		xdiff_max_unused = max_unused;
 	}
 }
 
@@ -518,30 +552,6 @@ int check_utmp (int total_unused) {
 	return total_unused;
 }
 
-#ifdef X11
-int check_x11 (void) {
-	Display *display;
-	int event_base, error_base;
-	XScreenSaverInfo info;
-
-	display = XOpenDisplay(NULL);
-	if (!display) {
-		return -1;
-	}
-	if (XScreenSaverQueryExtension(display, &event_base, &error_base) != 0) {
-		if (XScreenSaverQueryInfo(display, DefaultRootWindow(display), &info) == 0) {
-			return -1;
-		}
-	}
-	XCloseDisplay(display);
-
-	int idle = (int)(info.idle/1000.0f);
-	if (!idle && debug)
-		printf("sleepd: activity: x11\n");
-	return (int)(info.idle/1000.0f);
-}
-#endif
-
 char *safe_env (const char *name)
 {
 	if (! name)
@@ -644,6 +654,9 @@ void main_loop (void) {
 	char xauthority[IPC_PATHMAX+1];
 	char xdisplay[IPC_XDISPMAX+1];
 	int x_unused = 0;
+	unsigned int x_bounds[4];
+	XImage *x_oldimg = NULL;
+	int xdiff_unused = 0;
 #endif
 	int sleep_battery = 0;
 	int prev_ac_line_status = -1;
@@ -656,9 +669,11 @@ void main_loop (void) {
 	unsetenv("XAUTHORITY");
 
 	memset(&ai, '\0', sizeof(ai));
+#ifdef X11
+	memset(&x_bounds[0], '\0', sizeof(x_bounds));
+#endif
 
 	if (use_events) {
-		pthread_t emthread;
 		pthread_create(&emthread, NULL, eventMonitor, NULL);
 	}
 
@@ -676,6 +691,7 @@ void main_loop (void) {
 					strncpy(&xdisplay[0], &id_ptr->xdisplay[0], IPC_XDISPMAX);
 					setenv("XAUTHORITY", &xauthority[0], 1);
 					setenv("DISPLAY", &xdisplay[0], 1);
+
 					if (!use_x) {
 						if (debug) {
 							printf("sleepd: x11 idle check enabled (DISPLAY: %s , XAUTHORITY: %s)\n", &xdisplay[0], &xauthority[0]);
@@ -690,18 +706,37 @@ void main_loop (void) {
 								}
 							}
 						}
+						if (init_x11() != 0) {
+							syslog(LOG_ERR, "X11 init failed.\n");
+							UNSET_FLAG(id_ptr, FLG_USEX11);
+						}
+						if (use_xdiff && check_x11_bounds(x_bounds) != 0) {
+							syslog(LOG_ERR, "X11 diff using default bounds.\n");
+						}
 					}
-					if (check_x11() == -1) {
-						UNSET_FLAG(id_ptr, FLG_USEX11);
-						syslog(LOG_ERR, "X11 idle check failed, disable.\n");
+
+					if (use_xdiff && memcmp(&x_bounds[0], &id_ptr->xdiff_bounds[0], sizeof(x_bounds)) != 0) {
+						memcpy(&x_bounds[0], &id_ptr->xdiff_bounds[0], sizeof(x_bounds));
+						if (check_x11_bounds(x_bounds) != 0) {
+							syslog(LOG_ERR, "X11 bounds check failed, using default.\n");
+							memcpy(&id_ptr->xdiff_bounds[0], &x_bounds[0], sizeof(x_bounds));
+						}
+						if (x_oldimg) {
+							XDestroyImage(x_oldimg);
+							x_oldimg = NULL;
+						}
+						if (debug) {
+							printf("sleepd: X11 bounds: x = %u , y = %u , w = %u , h = %u\n", x_bounds[0], x_bounds[1], x_bounds[2], x_bounds[3]);
+						}
 					}
 				}
-				else if (GET_FLAG(id_ptr, FLG_USEX11) == 0) {
+				else if (use_x) {
 					memset(&id_ptr->xauthority[0], '\0', IPC_PATHMAX);
 					memset(&id_ptr->xdisplay[0], '\0', IPC_XDISPMAX);
 					unsetenv("DISPLAY");
 					unsetenv("XAUTHORITY");
 					unsetenv("SLEEPD_XUSER");
+					memset(&x_bounds[0], '\0', sizeof(x_bounds));
 				}
 				use_x = GET_FLAG(id_ptr, FLG_USEX11) != 0;
 #endif
@@ -749,6 +784,16 @@ void main_loop (void) {
 			if (x_unused == 0)
 				activity=1;
 		}
+		if (use_xdiff) {
+			ssize_t ret = calc_x11_screendiff(&x_oldimg, x_bounds, use_xdiff+1);
+			if (ret >= 0) {
+				if (ret <= use_xdiff) {
+					xdiff_unused += sleep_time;
+				} else xdiff_unused = 0;
+				if (debug)
+					printf("sleepd: x11 diff returned %lu\n", ret);
+			}
+ 		}
 #endif
 
 		if (debug && ai.battery_status != BATTERY_STATUS_ABSENT)
@@ -816,22 +861,13 @@ void main_loop (void) {
 			ipc_getshmptr(&id_ptr);
 			id_ptr->total_unused = total_unused;
 #ifdef X11
-			id_ptr->x_unused = x_unused;
+			id_ptr->xmax_unused = x_unused;
+			id_ptr->xdiff_unused = xdiff_unused;
 #endif
 			ipc_unlock();
 		}
 
 		sleep(sleep_time);
-
-		if (use_events) {
-			pthread_mutex_lock(&activity_mutex);
-			if (eventData.emactivity == 1) {
-				if (debug)
-					printf("sleepd: activity: keyboard/mouse events\n");
-				activity = 1;
-			}
-			pthread_mutex_unlock(&activity_mutex);
-		}
 
 #ifdef X11
 		if (use_x && ! no_sleep) {
@@ -845,8 +881,29 @@ void main_loop (void) {
 				activity = 0;
 				total_unused = x_unused;
 			}
+			if (use_xdiff && ! sleep_now) {
+				sleep_now = (xdiff_unused > xdiff_max_unused);
+				if (sleep_now) {
+					syslog(LOG_NOTICE, "x11 diff inactive");
+					activity = 0;
+					total_unused = xdiff_unused;
+				}
+			}
 		}
 #endif
+
+		if (use_events) {
+			pthread_mutex_lock(&activity_mutex);
+			if (eventData.emactivity == 1) {
+				if (debug)
+					printf("sleepd: activity: keyboard/mouse events\n");
+				activity = 1;
+#ifdef X11
+				xdiff_unused = 0;
+#endif
+			}
+			pthread_mutex_unlock(&activity_mutex);
+		}
 
 		if (activity) {
 			total_unused = 0;
@@ -871,6 +928,7 @@ void main_loop (void) {
 				total_unused = 0;
 #ifdef X11
 				x_unused = 0;
+				xdiff_unused = 0;
 #endif
 				oldtime = 0;
 				sleep_now = 0;
@@ -915,6 +973,8 @@ void cleanup (int signum) {
 		unlink(PID_FILE);
 	}
 	ipc_close_master();
+	if (use_events && pthread_cancel(emthread) == 0)
+		pthread_join(emthread, NULL);
 	exit(0);
 }
 

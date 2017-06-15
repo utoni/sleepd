@@ -1,3 +1,8 @@
+#define PKG_NAME "sleepd"
+#define PKG_MAIL "matzeton@googlemail.com"
+#define PKG_VERSION_MAJOR 2
+#define PKG_VERSION_MINOR 12
+
 #define MAX_IRQS 255
 #define MAX_NET 8
 #define INTERRUPTS "/proc/interrupts"

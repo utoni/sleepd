@@ -59,8 +59,11 @@ CFLAGS+=-DACPI_APM
 endif
 
 ifdef USE_X11
-SLEEPD_LIBS+=-lX11 -lXss
+SLEEPD_LIBS+=$(shell pkg-config --libs x11) -lXss
+SLEEPD_OBJS+=xutils.o
 CFLAGS+=-DX11
+$(BUILDDIR)/sleepd-objs/xutils.o: xutils.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(shell pkg-config --cflags x11) -c xutils.c -o $@
 endif
 
 SLEEPD_OBJS_PREFIX=$(addprefix $(BUILDDIR)/sleepd-objs/,$(SLEEPD_OBJS))

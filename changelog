@@ -4,7 +4,19 @@ sleepd ChangeLog
 (C) 2017 Toni Uhlig <matzeton@googlemail.com>
 
 
+VERSION 2.12
+  CHANGES
+    * X11 image diff calculation
+    * Shm safety checks
+
+
+VERSION 2.11
+  CHANGES
+    * X11 idle check
+
+
 VERSION 2.10
+  CHANGES
     * Replaced file based ipc with modern POSIX shared memory / POSIX mutex.
     * Bugfixes including a memory leak, wrong acpi battery count if more than
       one battery present
@@ -26,7 +38,7 @@ VERSION 1.13
     * Avoid crash by ignoring high irqs greater than 254 (assumption is these will
       not be irqs we care about). Thanks, Jeff Strunk.
     * Debhelper 7, minimal rules file.
-    *Update copyright file.
+    * Update copyright file.
 
 
 VERSION 1.12

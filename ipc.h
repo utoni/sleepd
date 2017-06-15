@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <grp.h>
 #include <pthread.h>
+#include <linux/limits.h>
 
 #define IPC_MODE S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
@@ -18,7 +19,11 @@
 #define FLG_HASX11  0x4
 #define FLG_USEX11  0x8
 
-#define IPC_PATHMAX  256
+#ifndef PATH_MAX
+#define IPC_PATHMAX 256
+#else
+#define IPC_PATHMAX PATH_MAX
+#endif
 #define IPC_XDISPMAX 32
 
 struct ipc_data
@@ -26,12 +31,15 @@ struct ipc_data
 	pthread_mutex_t shm_mtx;
 	unsigned char flags;
 	int max_unused;
+	int total_unused;
 
-	char xauthority[IPC_PATHMAX];
+	char xauthority[PATH_MAX];
 	char xdisplay[IPC_XDISPMAX];
 
-	int total_unused;
-	int x_unused;
+	unsigned int xdiff_bounds[4];
+	int xdiff_unused;
+
+	int xmax_unused;
 };
 
 #ifdef IS_MASTER

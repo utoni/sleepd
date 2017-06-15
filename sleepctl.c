@@ -22,7 +22,8 @@
 void cleanup_and_exit(int ret) __attribute__((noreturn));
 
 void usage (void) {
-	fprintf(stderr, "Usage: sleepctl [on|off|xon|xoff|status]\n");
+	printf("sleepctl %d.%d\n", PKG_VERSION_MAJOR, PKG_VERSION_MINOR);
+	fprintf(stderr, "Usage: sleepctl [on|off|xon|xoff|status|xdiff [XxY WxH]]\n");
 }
 
 void show_status (struct ipc_data *id) {
@@ -40,8 +41,10 @@ void show_status (struct ipc_data *id) {
 			}
 			else {
 				printf("x11....: enabled\n");
+				printf("xdiff..: [x = %u , y = %u , w = %u , h = %u]\n", id->xdiff_bounds[0], id->xdiff_bounds[1], id->xdiff_bounds[2], id->xdiff_bounds[3]);
+				printf("xdiffu.: %d\n", id->xdiff_unused);
 			}
-			printf("xunused: %d\n", id->x_unused);
+			printf("xmax...: %d\n", id->xmax_unused);
 
 			if (strnlen(id->xauthority, IPC_PATHMAX) > 0) {
 				printf("XAUTH..: %.*s\n", IPC_PATHMAX, id->xauthority);
@@ -70,11 +73,21 @@ void cleanup_and_exit(int ret) {
 int main (int argc, char **argv) {
 	struct ipc_data *id = NULL;
 
-	if (argc != 2) {
+	if (argc != 2 && argc != 4) {
 		usage();
-		exit(1);
+		exit(2);
 	}
-	else if (ipc_init_slave() != 0) {
+
+	int ret;
+	if ( (ret = ipc_init_slave()) != 0) {
+		switch (ret) {
+			case -2:
+				fprintf(stderr, "sleepctl: Wrong shared memory segment size. Maybe recompile sleepd/sleepctl?\n");
+				exit(2);
+			case -3:
+				fprintf(stderr, "sleepctl: sleepd not initialized\n");
+				exit(2);
+		}
 		switch (errno) {
 			case ENAMETOOLONG:
 			case ENOENT:
@@ -133,6 +146,19 @@ int main (int argc, char **argv) {
 	}
 	else if (strcmp(argv[1],"status") == 0) {
 		show_status(id);
+	}
+	else if (strcmp(argv[1],"xdiff") == 0) {
+		unsigned int x, y, w, h;
+		if (sscanf(argv[2], "%ux%u", &x, &y) != 2 ||
+			sscanf(argv[3], "%ux%u", &w, &h) != 2) {
+			printf("sleepctl: Wrong format for `%s %s`. (example: xdiff 200x100 150x150)\n", argv[2], argv[3]);
+		}
+		else {
+			id->xdiff_bounds[0] = x;
+			id->xdiff_bounds[1] = y;
+			id->xdiff_bounds[2] = w;
+			id->xdiff_bounds[3] = h;
+		}
 	}
 	else {
 		usage();

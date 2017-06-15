@@ -3,7 +3,7 @@
 sleepd \- puts a laptop to sleep during inactivity or on low battery
 .SH SYNOPSIS
 .B sleepd
-.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n] [-m n]] [-x n] [-g name]"
+.I "[-s command] [-d command] [-u n] [-U n] [-I] [-i n] [-E] [-e filename] [-a] [-l n] [-w] [-n] [-v] [-c n] [-b n] [-A] [-H] [-N [device] [-r n] [-t n] [-m n]] [-x n] [-g name] [--xdiff-unused n]"
 .SH DESCRIPTION
 .BR sleepd
 is a daemon to force laptops to go to sleep after some period of
@@ -114,6 +114,13 @@ Force UPower to be used instead of ACPI or other methods to query battery status
 .B \-x, \-\-xunused
 Force sleep after n seconds X11 inactivity. Defaults to "\-u,\-\-unused". Requires X11 support. See man 1 sleepctl for more info.
 .TP
+.B \-X, \-\-xdiff
+Enable X11 image diff which calculates the differences between two images captured with Xlib. The argument sets the maximum pixel difference.
+.TP
+.B \-\-xdiff\-unused
+Set the maximum unused time (X11 images diff is less or equal then the argument supplied with \-\-xdiff) before the machine is send to sleep.
+Defaults to the same value as \-u.
+.TP
 .B \-g, \-\-group
 Change the group of the shared memory segment to name.
 .SH "SEE ALSO"
@@ -127,3 +134,4 @@ devices), other devices on the same interrupt can keep the system awake.
 Use event device polling instead.
 .SH AUTHOR
 Joey Hess <joey@kitenet.net>
+Toni Uhlig <matzeton@googlemail.com>

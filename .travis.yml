@@ -2,7 +2,7 @@ language: c
 
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y debhelper dpkg-dev libapm-dev libupower-glib-dev libx11-dev libxss-dev
+  - sudo apt-get install -y debhelper dpkg-dev libapm-dev libupower-glib-dev libx11-dev libxss-dev fakeroot
 
 script:
   - make BUILDDIR=default all

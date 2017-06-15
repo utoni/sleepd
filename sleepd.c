@@ -381,9 +381,11 @@ void parse_command_line (int argc, char **argv) {
 		autoprobe = 1;
 	}
 
+#ifdef X11
 	if (xdiff_max_unused <= 0) {
 		xdiff_max_unused = max_unused;
 	}
+#endif
 }
 
 /**** stat the device file to get an idle time */

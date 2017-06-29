@@ -30,6 +30,8 @@ struct ipc_data
 {
 	pthread_mutex_t shm_mtx;
 	unsigned char flags;
+	pid_t master_pid;
+
 	int max_unused;
 	int total_unused;
 
@@ -52,4 +54,8 @@ extern void ipc_close_slave (void);
 
 extern int ipc_lock (void);
 extern int ipc_unlock (void);
-extern int ipc_getshmptr(struct ipc_data **id);
+extern int ipc_getshmptr (struct ipc_data **id);
+extern int ipc_master_running (void);
+#ifdef IS_MASTER
+extern int ipc_set_master_pid (pid_t p);
+#endif

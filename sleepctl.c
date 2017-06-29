@@ -36,6 +36,7 @@ void show_status (struct ipc_data *id) {
 		}
 
 		if (GET_FLAG(id, FLG_HASX11) != 0) {
+				printf("Master.: %d\n", id->master_pid);
 			if (GET_FLAG(id, FLG_USEX11) == 0) {
 				printf("x11....: disabled\n");
 			}
@@ -78,6 +79,7 @@ int main (int argc, char **argv) {
 		exit(2);
 	}
 
+	errno = 0;
 	int ret;
 	if ( (ret = ipc_init_slave()) != 0) {
 		switch (ret) {
@@ -103,6 +105,10 @@ int main (int argc, char **argv) {
 		}
 		exit(1);
 	}
+	if (ipc_master_running() != 0) {
+		fprintf(stderr, "sleepctl: master process not running, abort\n");
+		exit(1);
+	}
 
 	if (ipc_lock() == 0) {
 		if (ipc_getshmptr(&id) != 0) {
@@ -112,7 +118,6 @@ int main (int argc, char **argv) {
 		perror("ipc_lock");
 		exit(1);
 	}
-
 	errno = 0;
 
 	if (strcmp(argv[1],"on") == 0) {

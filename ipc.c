@@ -8,8 +8,10 @@
 #include <fcntl.h>     /* For O_* constants */
 #include <sys/stat.h>  /* For mode constants */
 #include <semaphore.h> /* POSIX Semaphores */
+#include <signal.h>    /* kill(...) */
 #include <sys/mman.h>  /* POSIX Shared Memory + mmap */
 #include <errno.h>     /* errno */
+
 #include "ipc.h"
 #include "sleepd.h"
 
@@ -24,7 +26,7 @@ int ipc_init_master (gid_t shm_grp) {
 		errno = 0;
 		/* disable umask temporarily */
 		mode_t old_umask = umask(0);
-		shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT | O_EXCL, IPC_MODE);
+		shm_fd = shm_open(SHM_NAME, O_RDWR | O_CREAT, IPC_MODE);
 		umask(old_umask);
 		if (shm_fd >= 0) {
 			/* set shared memory access rights, see /dev/shm */
@@ -145,3 +147,34 @@ int ipc_getshmptr (struct ipc_data **id) {
 		return 0;
 	} else return -1;
 }
+
+int ipc_master_running (void) {
+	struct ipc_data *id = NULL;
+
+	if (ipc_getshmptr(&id) != 0)
+		return -1; /* error */
+	if (id->master_pid <= 1 /* exclude init */)
+		return 1; /* assume not running, if invalid pid */
+
+	errno = 0;
+	if (kill(id->master_pid, 0) != 0) {
+		switch (errno) {
+			case EPERM: return 0;   /* running */
+			case EINVAL: return -1; /* error */
+			case ESRCH: return 1;   /* not running */
+		}
+	}
+	return 0; /* running */
+}
+
+#ifdef IS_MASTER
+int ipc_set_master_pid (pid_t p) {
+	struct ipc_data *id = NULL;
+
+	if (ipc_getshmptr(&id) != 0)
+		return -1;
+
+	id->master_pid = p;
+	return 0;
+}
+#endif

@@ -1089,10 +1089,25 @@ int main (int argc, char **argv) {
 		hibernate_command = sleep_command;
 	}
 
-	if (ipc_init_master(shm_grp) != 0) {
-		perror("ipc_init");
+	errno = 0;
+	if (ipc_init_master(shm_grp) != 0)
+		if (errno != EEXIST) {
+			perror("ipc_init");
+			exit(1);
+	        }
+	switch (ipc_master_running()) {
+		case 0:
+			fprintf(stderr, "sleepd: master process is still running, abort\n");
+			exit(1);
+		case -1:
+			fprintf(stderr, "sleepd: unknown error during process check, abort\n");
+			exit(1);
+	}
+	if (ipc_set_master_pid(getpid()) != 0) {
+		fprintf(stderr, "sleepd: ipc error, abort\n");
 		exit(1);
-        }
+	}
+
 	main_loop();
 
 	return(0); // never reached

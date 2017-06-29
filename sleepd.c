@@ -896,13 +896,16 @@ void main_loop (void) {
 
 		if (use_events) {
 			pthread_mutex_lock(&activity_mutex);
-			if (eventData.emactivity == 1) {
-				if (debug)
-					printf("sleepd: activity: keyboard/mouse events\n");
-				activity = 1;
+			int i;
+			for (i=0; eventData.channels[i] != -1; i++) {
+				if (eventData.emactivity[i] == 1) {
+					if (debug)
+						printf("sleepd: activity: keyboard/mouse events %s\n", eventData.events[i]);
+					activity = 1;
 #ifdef X11
-				xdiff_unused = 0;
+					xdiff_unused = 0;
 #endif
+				}
 			}
 			pthread_mutex_unlock(&activity_mutex);
 		}

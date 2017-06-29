@@ -90,14 +90,20 @@ void *eventMonitor() {
 		pthread_mutex_unlock(&condition_mutex);
 
 		pthread_mutex_lock(&activity_mutex);
-		eventData.emactivity = 0;
+		int i;
+		for (i=0; eventData.channels[i] != -1; i++) {
+			eventData.emactivity[i] = 0;
+		}
 		pthread_mutex_unlock(&activity_mutex);
 
 		retval = select(maxfd, &eventWatch, NULL, NULL, NULL);
 
 		if (retval > 0 ) {
 			pthread_mutex_lock(&activity_mutex);
-			eventData.emactivity = 1;
+			int i;
+			for (i=0; eventData.channels[i] != -1; i++)
+				if (FD_ISSET(eventData.channels[i], &eventWatch) != 0)
+					eventData.emactivity[i] = 1;
 			pthread_mutex_unlock(&activity_mutex);
 		}
 		cleanupIE();

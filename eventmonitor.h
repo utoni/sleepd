@@ -3,7 +3,7 @@ struct event_data
 {
 	char events[MAX_CHANNELS][128];
 	int channels[MAX_CHANNELS];
-	int emactivity;
+	int emactivity[MAX_CHANNELS];
 };
 
 struct event_data eventData;

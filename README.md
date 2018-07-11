@@ -1,8 +1,11 @@
 Master: <img src="https://travis-ci.org/lnslbrty/sleepd.svg?branch=master">
 Debian: <img src="https://travis-ci.org/lnslbrty/sleepd.svg?branch=debian">
 <a href="https://scan.coverity.com/projects/lnslbrty-sleepd">
-  <img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/11901/badge.svg"/>
+  <img alt="Coverity Scan Build Status" src="https://scan.coverity.com/projects/11901/badge.svg" />
 </a>
+<img alt="Codacy certification" src="https://api.codacy.com/project/badge/Grade/aa2041f1e6e648ae83945d29cfa0da17" />
+<img alt="Github Issues" src="https://img.shields.io/github/issues/lnslbrty/sleepd.svg" />
+<img alt="License" src="https://img.shields.io/github/license/lnslbrty/sleepd.svg" />
 
 sleepd-2.10
 ========

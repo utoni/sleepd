@@ -7,7 +7,7 @@ Debian: <img src="https://travis-ci.org/lnslbrty/sleepd.svg?branch=debian">
 <img alt="Github Issues" src="https://img.shields.io/github/issues/lnslbrty/sleepd.svg" />
 <img alt="License" src="https://img.shields.io/github/license/lnslbrty/sleepd.svg" />
 
-sleepd-2.10
+sleepd
 ========
 
 sleepd is a daemon to to put a machine to sleep if it is not being used or if the battery is low (if present). <br />
